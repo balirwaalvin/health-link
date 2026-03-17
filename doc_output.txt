@@ -1,0 +1,173 @@
+HEALTH LINK MUKONO — App Development Brief
+
+📱 APP OVERVIEW
+
+👥 USER ROLES
+Admin (Full Control)
+✅ View/edit/delete all patients, visits, clinics
+✅ Add/edit/delete clinics
+✅ View all system data
+✅ Manage staff accounts (optional)
+Clinic Staff
+✅ View patients list
+✅ View patient details & visit history
+✅ Request access (sends OTP email)
+✅ Add new visits
+✅ Register new patients
+❌ Cannot edit/delete records
+Patient
+✅ Receives OTP via email (48291)
+✅ Reads code aloud to grant access
+❌ No direct login
+
+🎨 COLORS
+Every screen must have:
+text
+⚠️ PROTOTYPE — NOT FOR REAL MEDICAL USE
+Red (#DF3232), small text, bottom of screen
+
+🗃️ DATABASE STRUCTURE
+1. users
+2. patients
+3. visits
+4. clinics
+Relationships
+One patient → many visits
+One clinic → many visits
+One user → many patients/visits/clinics
+
+📱 SCREENS
+1. Login
+Username + password
+Redirect based on role
+2. Dashboard
+Welcome + quick stats
+Navigation cards: Patients, Add Visit, Register
+Admin only: "Clinics Management" card
+3. Patients List
+Search by name or ID
+Cards show: name, ID, phone
+Tap → Patient Details
+Admin only: Edit/delete icons on cards
+Floating + button to Register
+4. Patient Details
+Display: ID, name, phone, email
+"🔐 Request Access" button (Blue)
+Sends email with OTP 48291
+Visit history list (newest first)
+Show: diagnosis, clinic, date
+"➕ Add Visit" button (Green)
+Admin only: Edit/delete buttons
+5. Add Visit
+Dropdown: Select Patient
+Date picker (default today)
+Dropdown: Select Clinic
+Diagnosis (text)
+Prescription (text)
+Notes (textarea)
+"💾 Save Visit" (Green)
+6. Register Patient
+Full Name (text)
+Phone (text)
+Email (email)
+Note: display_id auto-generates
+"✅ Register" (Green)
+7. Clinics Management (Admin only)
+List all clinics with edit/delete
+"➕ Add Clinic" button
+Add/Edit form: name, location, phone
+Delete confirmation modal
+8. All Visits (Admin only)
+Search + filter
+List all visits with patient, date, clinic
+Edit/delete options
+9. About
+App info + how it works
+
+📧 OTP EMAIL
+Trigger: Click "Request Access"
+
+🔄 USER FLOW
+text
+Login → Dashboard → Patients List → Patient Details
+                              ↓
+                        [Request Access] → Email sent
+                        [Add Visit] → Form → Save
+                        [Back] → Patients List
+                        [Register] → Form → Save → Patient Details
+Admin only: Dashboard → Clinics Management → Add/Edit/Delete
+
+                    START
+                      ↓
+                  LOGIN SCREEN
+                      ↓
+            ┌─────────┴─────────┐
+            │                   │
+      ┌─────▼─────┐       ┌─────▼─────┐
+      │  STAFF    │       │   ADMIN   │
+      │ DASHBOARD │       │ DASHBOARD │
+      └─────┬─────┘       └─────┬─────┘
+            │                   │
+            ├───────────────────┘
+            │
+            ▼
+    ┌───────────────┐
+    │ PATIENTS LIST │◄───────────────┐
+    └───────┬───────┘                │
+            │                        │
+    ┌───────▼───────┐                │
+    │   PATIENT     │   ┌────────────┴────────────┐
+    │   DETAILS     │   │                         │
+    └───────┬───────┘   │                         │
+            │           │                         │
+    ┌───────▼───────┐   │   ┌─────────────────┐   │
+    │ REQUEST ACCESS│───┼──▶│ OTP EMAIL SENT  │   │
+    └───────┬───────┘   │   └─────────────────┘   │
+            │           │                         │
+    ┌───────▼───────┐   │   ┌─────────────────┐   │
+    │ ADD VISIT     │───┼──▶│ SAVE TO DATABASE│   │
+    └───────┬───────┘   │   └─────────────────┘   │
+            │           │                         │
+    ┌───────▼───────┐   │                         │
+    │REGISTER PATIENT│  │                         │
+    └───────┬───────┘   │                         │
+            │           │                         │
+            └───────────┼─────────────────────────┘
+                        │
+                        ▼
+              ┌─────────────────┐
+              │ ADMIN PANEL     │ (Admin Only)
+              │ ┌─────────────┐ │
+              │ │Add/Edit     │ │
+              │ │Clinics      │ │
+              │ ├─────────────┤ │
+              │ │All Visits   │ │
+              │ │Management   │ │
+              │ ├─────────────┤ │
+              │ │User Mgmt    │ │ (Phase 2)
+              │ └─────────────┘ │
+              └─────────────────┘
+
+
+✅ FEATURE CHECKLIST
+Login with role-based access
+Patients List with search
+Patient Details with info + visit history
+Request Access button sending OTP email
+Add Visit form
+Register Patient form (auto ID)
+Clinics Management (Admin only)
+All Visits view (Admin only)
+Edit/Delete for Admin on all records
+Red disclaimer on every screen
+Blue (#5CA6E2), Green (#318542), Red (#DF3232) colors
+Mobile responsive
+Sample data pre-loaded
+
+📊 SAMPLE DATA
+Admin Login
+Staff Login
+Patients
+Clinics
+Visits
+

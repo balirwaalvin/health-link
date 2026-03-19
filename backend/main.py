@@ -10,6 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 def migrate_legacy_sqlite_schema():
+    if database.engine.dialect.name != "sqlite":
+        return
+
     with database.engine.begin() as conn:
         table_rows = conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         tables = {row[0] for row in table_rows}

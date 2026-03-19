@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { account } from '../lib/appwrite';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -13,17 +13,16 @@ export default function Login() {
     setError('');
     
     try {
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
-
-      const response = await api.post('/auth/token', formData);
-      localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('role', response.data.role || 'staff');
-      localStorage.setItem('full_name', response.data.full_name || username);
+      await account.createEmailPasswordSession(email, password);
+      const user = await account.get();
+      
+      localStorage.setItem('token', 'appwrite_session');
+      const userRole = user.labels?.includes('admin') ? 'admin' : 'staff';
+      localStorage.setItem('role', userRole);
+      localStorage.setItem('full_name', user.name || email);
       navigate('/');
-    } catch {
-      setError('Invalid credentials.');
+    } catch (err: any) {
+      setError(err?.message || 'Invalid credentials.');
     }
   };
 
@@ -39,12 +38,12 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input 
-              type="text" 
+              type="email" 
               className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>

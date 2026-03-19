@@ -30,7 +30,11 @@ export default function Layout() {
           <p className="text-xs opacity-90">Role: {role}</p>
         </div>
         <button 
-          onClick={() => {
+          onClick={async () => {
+            try {
+              const { account } = await import('../lib/appwrite');
+              await account.deleteSession('current');
+            } catch (e) {}
             localStorage.removeItem('token');
             localStorage.removeItem('role');
             localStorage.removeItem('full_name');

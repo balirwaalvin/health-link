@@ -1,85 +1,117 @@
-import axios from 'axios';
-import { mockApi } from './mockApi';
+import { databases, appwriteConfig } from './appwrite';
+import { ID, Query } from 'appwrite';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+const DB = appwriteConfig.databaseId;
+const PATIENTS = appwriteConfig.patientsCollectionId;
+const CLINICS = appwriteConfig.clinicsCollectionId;
+const VISITS = appwriteConfig.visitsCollectionId;
 
-// Mock API interceptor
-class MockInterceptor {
-  async get(url: string, config?: any) {
-    if (url === '/dashboard/stats') return mockApi.getDashboardStats();
-    if (url === '/patients') return mockApi.getPatients();
-    if (url.match(/^\/patients\/\d+$/)) {
-      const id = parseInt(url.split('/')[2]);
-      if (url.includes('/visits')) return mockApi.getPatientVisits(id);
-      return mockApi.getPatient(id);
+export const api = {
+  get: async (url: string, _config?: any) => {
+    if (url === '/dashboard/stats') {
+      const p = await databases.listDocuments(DB, PATIENTS, [Query.limit(1)]);
+      const c = await databases.listDocuments(DB, CLINICS, [Query.limit(1)]);
+      const v = await databases.listDocuments(DB, VISITS, [Query.limit(1)]);
+      return { 
+        data: { 
+          patients: p.total, 
+          clinics: c.total, 
+          visits: v.total, 
+          role: localStorage.getItem('role') || 'staff' 
+        } 
+      };
     }
-    if (url === '/visits') return mockApi.getVisits();
-    if (url === '/clinics') return mockApi.getClinics();
-    throw { response: { status: 404, data: { detail: 'Not found' } } };
+    if (url === '/patients') {
+      const res = await databases.listDocuments(DB, PATIENTS, [Query.orderDesc('$createdAt')]);
+      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
+    }
+    if (url.match(/^\/patients\/(.+)$/)) {
+      const id = url.split('/')[2];
+      if (url.includes('/visits')) {
+        const res = await databases.listDocuments(DB, VISITS, [Query.equal('patient_id', id), Query.orderDesc('$createdAt')]);
+        return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
+      }
+      const d: any = await databases.getDocument(DB, PATIENTS, id);
+      return { data: { ...d, id: d.$id } };
+    }
+    if (url === '/visits') {
+      const res = await databases.listDocuments(DB, VISITS, [Query.orderDesc('$createdAt')]);
+      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
+    }
+    if (url === '/clinics') {
+      const res = await databases.listDocuments(DB, CLINICS, [Query.orderDesc('$createdAt')]);
+      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
+    }
+    throw new Error('Not found: ' + url);
+  },
+  
+  post: async (url: string, data?: any, _config?: any) => {
+    if (url === '/patients') {
+      const d: any = await databases.createDocument(DB, PATIENTS, ID.unique(), {
+        full_name: data.full_name,
+        phone: data.phone,
+        email: data.email || null,
+        display_id: `MKN-${Math.floor(Math.random() * 10000)}`
+      });
+      return { data: { ...d, id: d.$id } };
+    }
+    if (url === '/clinics') {
+      const d: any = await databases.createDocument(DB, CLINICS, ID.unique(), {
+        clinic_name: data.clinic_name,
+        location: data.location,
+        contact_phone: data.contact_phone
+      });
+      return { data: { ...d, id: d.$id } };
+    }
+    if (url === '/visits') {
+      const payload = {
+         diagnosis: data.diagnosis,
+         prescription: data.prescription,
+         notes: data.notes || '',
+         visit_date: data.visit_date || new Date().toISOString(),
+         patient_id: String(data.patient_id),
+         clinic_id: String(data.clinic_id),
+         created_by_name: localStorage.getItem('full_name') || 'staff'
+      };
+      const d: any = await databases.createDocument(DB, VISITS, ID.unique(), payload);
+      return { data: { ...d, id: d.$id } };
+    }
+    throw new Error('Not found: ' + url);
+  },
+
+  put: async (url: string, data?: any, _config?: any) => {
+    if (url.match(/^\/clinics\/(.+)$/)) {
+      const id = url.split('/')[2];
+      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
+      const d: any = await databases.updateDocument(DB, CLINICS, id, updateData);
+      return { data: { ...d, id: d.$id } };
+    }
+    if (url.match(/^\/visits\/(.+)$/)) {
+      const id = url.split('/')[2];
+      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
+      const d: any = await databases.updateDocument(DB, VISITS, id, updateData);
+      return { data: { ...d, id: d.$id } };
+    }
+    throw new Error('Not found');
+  },
+
+  delete: async (url: string, _config?: any) => {
+    if (url.match(/^\/clinics\/(.+)$/)) {
+      const id = url.split('/')[2];
+      await databases.deleteDocument(DB, CLINICS, id);
+      return { data: { success: true } };
+    }
+    if (url.match(/^\/visits\/(.+)$/)) {
+      const id = url.split('/')[2];
+      await databases.deleteDocument(DB, VISITS, id);
+      return { data: { success: true } };
+    }
+    throw new Error('Not found');
   }
+};
 
-  async post(url: string, data?: any, config?: any) {
-    const formData = data;
-    if (url === '/auth/token') {
-      return mockApi.login(formData.get?.('username') || formData.username, formData.get?.('password') || formData.password);
-    }
-    if (url === '/patients') return mockApi.createPatient(data);
-    if (url === '/clinics') return mockApi.createClinic(data);
-    if (url === '/visits') return mockApi.createVisit(data);
-    if (url.match(/^\/patients\/\d+\/request-otp$/)) {
-      const id = parseInt(url.split('/')[2]);
-      return mockApi.requestOtp(id);
-    }
-    throw { response: { status: 404, data: { detail: 'Not found' } } };
-  }
+export function authHeaders() { return {}; }
 
-  async put(url: string, data?: any, config?: any) {
-    if (url.match(/^\/clinics\/\d+$/)) {
-      const id = parseInt(url.split('/')[2]);
-      return mockApi.updateClinic(id, data);
-    }
-    if (url.match(/^\/visits\/\d+$/)) {
-      const id = parseInt(url.split('/')[2]);
-      return mockApi.updateVisit(id, data);
-    }
-    throw { response: { status: 404, data: { detail: 'Not found' } } };
-  }
-
-  async delete(url: string, config?: any) {
-    if (url.match(/^\/clinics\/\d+$/)) {
-      const id = parseInt(url.split('/')[2]);
-      return mockApi.deleteClinic(id);
-    }
-    if (url.match(/^\/visits\/\d+$/)) {
-      const id = parseInt(url.split('/')[2]);
-      return mockApi.deleteVisit(id);
-    }
-    throw { response: { status: 404, data: { detail: 'Not found' } } };
-  }
-}
-
-const mockInterceptor = new MockInterceptor();
-
-export const api = USE_MOCK_DATA
-  ? (mockInterceptor as any)
-  : axios.create({
-      baseURL: API_BASE_URL,
-    });
-
-export function authHeaders() {
-  const token = localStorage.getItem('token');
-  return {
-    Authorization: `Bearer ${token ?? ''}`,
-  };
-}
-
-export function getErrorMessage(error: unknown, fallback: string) {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === 'string' && detail.trim()) {
-      return detail;
-    }
-  }
-  return fallback;
+export function getErrorMessage(error: any, fallback: string) {
+  return error?.message || fallback;
 }

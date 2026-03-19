@@ -15,7 +15,7 @@ let nextPatientId = 5;
 let nextVisitId = 4;
 
 export const mockApi = {
-  async login(username: string, password: string) {
+  async login(username: string, _password: string) {
     await delay(300);
     const user = mockUsers[username as keyof typeof mockUsers];
     if (!user) {
@@ -167,7 +167,7 @@ export const mockApi = {
     return { data: { success: true } };
   },
 
-  async requestOtp(patientId: number) {
+  async requestOtp(_patientId: number) {
     await delay(500);
     return { data: { otp_code: '48291', message: 'OTP sent successfully' } };
   },

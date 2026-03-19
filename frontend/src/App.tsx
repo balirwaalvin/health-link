@@ -3,6 +3,12 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
+import PatientDetails from './pages/PatientDetails';
+import AddVisit from './pages/AddVisit';
+import RegisterPatient from './pages/RegisterPatient';
+import Clinics from './pages/Clinics';
+import AllVisits from './pages/AllVisits';
+import About from './pages/About';
 
 function App() {
   return (
@@ -11,11 +17,12 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="patients" element={<Patients />} />
-        {/* Placeholders for future routes */}
-        <Route path="patients/:id" element={<div className="p-4 text-center">Patient Details Placeholder</div>} />
-        <Route path="patients/register" element={<div className="p-4 text-center">Register Placeholder</div>} />
-        <Route path="visits/add" element={<div className="p-4 text-center">Add Visit Placeholder</div>} />
-        <Route path="clinics" element={<div className="p-4 text-center">Clinics Placeholder</div>} />
+        <Route path="patients/register" element={<RegisterPatient />} />
+        <Route path="patients/:id" element={<PatientDetails />} />
+        <Route path="visits/add" element={<AddVisit />} />
+        <Route path="visits" element={<AllVisits />} />
+        <Route path="clinics" element={<Clinics />} />
+        <Route path="about" element={<About />} />
       </Route>
     </Routes>
   );

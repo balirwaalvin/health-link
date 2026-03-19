@@ -9,6 +9,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password_hash = Column(String)
     role = Column(String) # "admin" or "staff"
+    full_name = Column(String)
 
 class Patient(Base):
     __tablename__ = "patients"
@@ -17,14 +18,17 @@ class Patient(Base):
     full_name = Column(String)
     phone = Column(String)
     email = Column(String)
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    
     visits = relationship("Visit", back_populates="patient")
+    creator = relationship("User")
 
 class Clinic(Base):
     __tablename__ = "clinics"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
+    clinic_name = Column(String)
     location = Column(String)
-    phone = Column(String)
+    contact_phone = Column(String)
     visits = relationship("Visit", back_populates="clinic")
 
 class Visit(Base):
@@ -33,11 +37,11 @@ class Visit(Base):
     diagnosis = Column(String)
     prescription = Column(String)
     notes = Column(String)
-    date = Column(DateTime, default=datetime.datetime.utcnow)
+    visit_date = Column(DateTime, default=datetime.datetime.utcnow)
     patient_id = Column(Integer, ForeignKey("patients.id"))
     clinic_id = Column(Integer, ForeignKey("clinics.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    created_by_id = Column(Integer, ForeignKey("users.id"))
     
     patient = relationship("Patient", back_populates="visits")
     clinic = relationship("Clinic", back_populates="visits")
-    user = relationship("User")
+    creator = relationship("User")

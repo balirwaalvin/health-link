@@ -64,8 +64,8 @@ export default function Login() {
 
         <div className="mt-6 text-xs text-center text-gray-400">
           <p>Demo accounts (preloaded):</p>
-          <p>Admin: admin / admin123</p>
-          <p>Staff: staff / staff123</p>
+          <p>Admin: admin@healthlink.com / admin123</p>
+          <p>Staff: staff@healthlink.com / staff123</p>
         </div>
       </div>
 

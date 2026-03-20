@@ -61,12 +61,6 @@ export default function Login() {
             Login
           </button>
         </form>
-
-        <div className="mt-6 text-xs text-center text-gray-400">
-          <p>Demo accounts (preloaded):</p>
-          <p>Admin: admin@healthlink.com / admin123</p>
-          <p>Staff: staff@healthlink.com / staff123</p>
-        </div>
       </div>
 
       <div className="fixed bottom-0 w-full left-0 bg-[#DF3232] text-white text-center text-xs py-2 font-semibold shadow-lg z-50">

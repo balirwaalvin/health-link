@@ -22,7 +22,7 @@ interface Visit {
 
 export default function PatientDetails() {
   const { id } = useParams();
-  const patientId = Number(id);
+  const patientId = id || '';
   const role = localStorage.getItem('role') || 'staff';
   const isAdmin = role === 'admin';
   const navigate = useNavigate();

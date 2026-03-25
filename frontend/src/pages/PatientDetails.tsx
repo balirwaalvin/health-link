@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit2, Lock, PlusCircle, Trash2 } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
+import { isTenDigitPhone, normalizePhoneInput } from '../lib/phone';
 
 interface Patient {
   id: number;
@@ -97,8 +98,13 @@ export default function PatientDetails() {
     if (!fullName) {
       return;
     }
-    const phone = window.prompt('Edit phone', patient.phone);
+    const phoneInput = window.prompt('Edit phone (10 digits)', patient.phone);
+    const phone = normalizePhoneInput(phoneInput || '');
     if (!phone) {
+      return;
+    }
+    if (!isTenDigitPhone(phone)) {
+      setError('Phone number must be exactly 10 digits.');
       return;
     }
     const email = window.prompt('Edit email', patient.email || '');

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from pydantic import field_validator
 from typing import List, Optional
 import datetime
 
@@ -21,6 +22,13 @@ class PatientBase(BaseModel):
     phone: str
     email: Optional[str] = None
 
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, value: str):
+        if not value.isdigit() or len(value) != 10:
+            raise ValueError('Phone number must be exactly 10 digits')
+        return value
+
 class PatientCreate(PatientBase):
     pass
 
@@ -35,6 +43,13 @@ class ClinicBase(BaseModel):
     clinic_name: str
     location: str
     contact_phone: str
+
+    @field_validator('contact_phone')
+    @classmethod
+    def validate_contact_phone(cls, value: str):
+        if not value.isdigit() or len(value) != 10:
+            raise ValueError('Phone number must be exactly 10 digits')
+        return value
 
 class ClinicCreate(ClinicBase):
     pass
@@ -94,11 +109,29 @@ class PatientUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
 
+    @field_validator('phone')
+    @classmethod
+    def validate_update_phone(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.isdigit() or len(value) != 10:
+            raise ValueError('Phone number must be exactly 10 digits')
+        return value
+
 
 class ClinicUpdate(BaseModel):
     clinic_name: Optional[str] = None
     location: Optional[str] = None
     contact_phone: Optional[str] = None
+
+    @field_validator('contact_phone')
+    @classmethod
+    def validate_update_contact_phone(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.isdigit() or len(value) != 10:
+            raise ValueError('Phone number must be exactly 10 digits')
+        return value
 
 
 class VisitUpdate(BaseModel):

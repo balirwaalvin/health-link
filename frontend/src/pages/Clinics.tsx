@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Building, Plus, Edit2, Trash2 } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
+import { isEmptyOrTenDigitPhone, normalizePhoneInput } from '../lib/phone';
 
 interface Clinic {
   id: number;
@@ -35,7 +36,12 @@ export default function Clinics() {
       return;
     }
     const location = window.prompt('Location (optional)') || '';
-    const contact_phone = window.prompt('Phone (optional)') || '';
+    const contactPhoneInput = window.prompt('Phone (10 digits, optional)') || '';
+    const contact_phone = normalizePhoneInput(contactPhoneInput);
+    if (!isEmptyOrTenDigitPhone(contact_phone)) {
+      setError('Clinic phone must be exactly 10 digits.');
+      return;
+    }
 
     try {
       await api.post('/clinics', { clinic_name, location, contact_phone }, { headers: authHeaders() });
@@ -51,7 +57,12 @@ export default function Clinics() {
       return;
     }
     const location = window.prompt('Location', clinic.location || '') || '';
-    const contact_phone = window.prompt('Phone', clinic.contact_phone || '') || '';
+    const contactPhoneInput = window.prompt('Phone (10 digits)', clinic.contact_phone || '') || '';
+    const contact_phone = normalizePhoneInput(contactPhoneInput);
+    if (!isEmptyOrTenDigitPhone(contact_phone)) {
+      setError('Clinic phone must be exactly 10 digits.');
+      return;
+    }
 
     try {
       await api.put(

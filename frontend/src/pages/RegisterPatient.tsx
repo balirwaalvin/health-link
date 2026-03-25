@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
+import { isTenDigitPhone, normalizePhoneInput } from '../lib/phone';
 
 export default function RegisterPatient() {
   const navigate = useNavigate();
@@ -14,6 +15,11 @@ export default function RegisterPatient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isTenDigitPhone(form.phone)) {
+      setError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
     try {
       setSaving(true);
       setError('');
@@ -54,7 +60,10 @@ export default function RegisterPatient() {
             type="tel"
             className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
             value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            onChange={(e) => setForm({ ...form, phone: normalizePhoneInput(e.target.value) })}
+            inputMode="numeric"
+            maxLength={10}
+            pattern="\d{10}"
             required
           />
         </div>

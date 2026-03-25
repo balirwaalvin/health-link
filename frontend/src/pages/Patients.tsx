@@ -4,11 +4,12 @@ import { Edit, Plus, Search, Trash2 } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
 
 interface Patient {
-  id: number;
-  display_id: string;
-  full_name: string;
-  phone: string;
+  id: number | string;
+  display_id?: string;
+  full_name?: string;
+  phone?: string;
   email?: string;
+  [key: string]: unknown;
 }
 
 export default function Patients() {
@@ -23,7 +24,13 @@ export default function Patients() {
       const res = await api.get('/patients', {
         headers: authHeaders(),
       });
-      setPatients(res.data);
+      const normalized = (res.data as Patient[]).map((patient) => ({
+        ...patient,
+        full_name: patient.full_name || 'Unnamed Patient',
+        display_id: patient.display_id || 'N/A',
+        phone: patient.phone || 'N/A',
+      }));
+      setPatients(normalized);
       setError('');
     } catch {
       setError('Failed to fetch patients. Ensure backend is running.');
@@ -39,13 +46,40 @@ export default function Patients() {
     () =>
       patients.filter(
         (p) =>
-          p.full_name.toLowerCase().includes(search.toLowerCase()) ||
-          p.display_id.toLowerCase().includes(search.toLowerCase())
+          (p.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (p.display_id || '').toLowerCase().includes(search.toLowerCase())
       ),
     [patients, search]
   );
 
-  const deletePatient = async (id: number) => {
+  const toLabel = (key: string) =>
+    key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const toDisplayValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') {
+      return 'N/A';
+    }
+    if (Array.isArray(value)) {
+      return value.length ? value.join(', ') : 'N/A';
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  const hiddenFields = new Set([
+    '$id',
+    '$collectionId',
+    '$databaseId',
+    '$createdAt',
+    '$updatedAt',
+    '$permissions',
+  ]);
+
+  const deletePatient = async (id: number | string) => {
     const yes = window.confirm('Delete this patient and related visits?');
     if (!yes) {
       return;
@@ -107,7 +141,16 @@ export default function Patients() {
           >
             <div>
               <h3 className="font-bold text-gray-800">{patient.full_name}</h3>
-              <p className="text-sm text-gray-500">ID: {patient.display_id} | {patient.phone}</p>
+              <p className="text-sm text-gray-500">ID: {patient.display_id}</p>
+              <div className="mt-2 space-y-1">
+                {Object.entries(patient)
+                  .filter(([key]) => !hiddenFields.has(key) && key !== 'id')
+                  .map(([key, value]) => (
+                    <p key={`${patient.id}-${key}`} className="text-xs text-gray-600">
+                      <span className="font-semibold text-gray-700">{toLabel(key)}:</span> {toDisplayValue(value)}
+                    </p>
+                  ))}
+              </div>
             </div>
             {role === 'admin' && (
               <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>

@@ -7,7 +7,7 @@ const CLINICS = appwriteConfig.clinicsCollectionId;
 const VISITS = appwriteConfig.visitsCollectionId;
 
 export const api = {
-  get: async (url: string, _config?: any) => {
+  get: async (url: string, config?: any) => {
     if (url === '/dashboard/stats') {
       const p = await databases.listDocuments(DB, PATIENTS, [Query.limit(1)]);
       const c = await databases.listDocuments(DB, CLINICS, [Query.limit(1)]);
@@ -35,8 +35,41 @@ export const api = {
       return { data: { ...d, id: d.$id } };
     }
     if (url === '/visits') {
-      const res = await databases.listDocuments(DB, VISITS, [Query.orderDesc('$createdAt')]);
-      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
+      const [visitsRes, patientsRes, clinicsRes] = await Promise.all([
+        databases.listDocuments(DB, VISITS, [Query.orderDesc('$createdAt')]),
+        databases.listDocuments(DB, PATIENTS, [Query.limit(5000)]),
+        databases.listDocuments(DB, CLINICS, [Query.limit(5000)]),
+      ]);
+
+      const patientById = new Map(
+        patientsRes.documents.map((p: any) => [String(p.$id), p])
+      );
+      const clinicById = new Map(
+        clinicsRes.documents.map((c: any) => [String(c.$id), c])
+      );
+
+      let visits = visitsRes.documents.map((d: any) => {
+        const patient = patientById.get(String(d.patient_id));
+        const clinic = clinicById.get(String(d.clinic_id));
+        return {
+          ...d,
+          id: d.$id,
+          patient_name: d.patient_name || patient?.full_name || 'Unknown Patient',
+          patient_display_id: d.patient_display_id || patient?.display_id || 'N/A',
+          clinic_name: d.clinic_name || clinic?.clinic_name || 'Unknown Clinic',
+        };
+      });
+
+      const searchValue = (config?.params?.search || '').toString().trim().toLowerCase();
+      if (searchValue) {
+        visits = visits.filter((visit: any) =>
+          [visit.patient_name, visit.patient_display_id, visit.clinic_name, visit.diagnosis]
+            .map((value) => (value || '').toString().toLowerCase())
+            .some((value) => value.includes(searchValue))
+        );
+      }
+
+      return { data: visits };
     }
     if (url === '/clinics') {
       const res = await databases.listDocuments(DB, CLINICS, [Query.orderDesc('$createdAt')]);

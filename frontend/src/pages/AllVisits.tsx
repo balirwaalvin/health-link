@@ -3,12 +3,13 @@ import { Edit2, Trash2 } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
 
 interface Visit {
-  id: number;
-  visit_date: string;
-  patient_name: string;
-  patient_display_id: string;
-  clinic_name: string;
-  diagnosis: string;
+  id: number | string;
+  visit_date?: string;
+  patient_name?: string;
+  patient_display_id?: string;
+  clinic_name?: string;
+  diagnosis?: string;
+  [key: string]: unknown;
 }
 
 export default function AllVisits() {
@@ -48,7 +49,7 @@ export default function AllVisits() {
     }
   };
 
-  const deleteVisit = async (visitId: number) => {
+  const deleteVisit = async (visitId: number | string) => {
     const yes = window.confirm('Delete this visit?');
     if (!yes) {
       return;
@@ -62,6 +63,55 @@ export default function AllVisits() {
   };
 
   if (role !== 'admin') return <div className="p-4 text-center text-red-500 font-bold">Access Denied</div>;
+
+  const toLabel = (key: string) =>
+    key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const toDisplayValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') {
+      return 'N/A';
+    }
+    if (Array.isArray(value)) {
+      return value.length ? value.join(', ') : 'N/A';
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  const hiddenFields = new Set([
+    '$id',
+    '$collectionId',
+    '$databaseId',
+    '$createdAt',
+    '$updatedAt',
+    '$permissions',
+  ]);
+
+  const preferredFieldOrder = [
+    'visit_date',
+    'patient_name',
+    'patient_display_id',
+    'clinic_name',
+    'diagnosis',
+    'prescription',
+    'notes',
+    'patient_id',
+    'clinic_id',
+    'created_by_id',
+    'created_by_name',
+  ];
+
+  const formatDate = (value: string | undefined) => {
+    if (!value) {
+      return 'N/A';
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
+  };
 
   return (
     <div className="space-y-4">
@@ -93,10 +143,31 @@ export default function AllVisits() {
            <tbody className="divide-y divide-gray-100">
              {visits.map((visit) => (
                <tr key={visit.id}>
-                 <td className="p-3">{new Date(visit.visit_date).toLocaleDateString()}</td>
-                 <td className="p-3 font-medium">{visit.patient_name} ({visit.patient_display_id})</td>
-                 <td className="p-3">{visit.clinic_name}</td>
-                 <td className="p-3">{visit.diagnosis}</td>
+                 <td className="p-3">{formatDate(visit.visit_date)}</td>
+                 <td className="p-3 font-medium">{visit.patient_name || 'Unknown Patient'} ({visit.patient_display_id || 'N/A'})</td>
+                 <td className="p-3">{visit.clinic_name || 'Unknown Clinic'}</td>
+                 <td className="p-3">
+                   <p className="font-medium text-gray-800 mb-1">{visit.diagnosis || 'N/A'}</p>
+                   <div className="space-y-1">
+                     {[...
+                       preferredFieldOrder
+                         .filter((key) => key in visit)
+                         .map((key) => [key, visit[key]] as const),
+                       ...Object.entries(visit).filter(
+                         ([key]) =>
+                           !hiddenFields.has(key) &&
+                           key !== 'id' &&
+                           !preferredFieldOrder.includes(key)
+                       ),
+                     ]
+                       .filter(([key]) => key !== 'clinic_name' && key !== 'patient_name' && key !== 'patient_display_id' && key !== 'diagnosis')
+                       .map(([key, value]) => (
+                         <p key={`${visit.id}-${key}`} className="text-xs text-gray-600">
+                           <span className="font-semibold text-gray-700">{toLabel(key)}:</span> {toDisplayValue(value)}
+                         </p>
+                       ))}
+                   </div>
+                 </td>
                  <td className="p-3">
                    <div className="flex gap-2">
                      <button onClick={() => editVisit(visit)} className="text-[#5CA6E2]"><Edit2 className="w-4 h-4" /></button>

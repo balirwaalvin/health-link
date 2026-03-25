@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
 
 interface OptionItem {
-  id: number;
+  id: string;
   label: string;
 }
 
@@ -21,7 +21,7 @@ interface ClinicResponse {
 export default function AddVisit() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedPatientId = searchParams.get('patientId');
+  const preselectedPatientId = searchParams.get('patientId') || '';
 
   const [patients, setPatients] = useState<OptionItem[]>([]);
   const [clinics, setClinics] = useState<OptionItem[]>([]);
@@ -29,9 +29,9 @@ export default function AddVisit() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    patient_id: preselectedPatientId ? Number(preselectedPatientId) : 0,
+    patient_id: preselectedPatientId,
     visit_date: new Date().toISOString().split('T')[0],
-    clinic_id: 0,
+    clinic_id: '',
     diagnosis: '',
     prescription: '',
     notes: '',
@@ -46,11 +46,11 @@ export default function AddVisit() {
         ]);
 
         const patientOptions = (patientsRes.data as PatientResponse[]).map((p) => ({
-          id: p.id,
+          id: String(p.id),
           label: `${p.full_name} (${p.display_id})`,
         }));
         const clinicOptions = (clinicsRes.data as ClinicResponse[]).map((c) => ({
-          id: c.id,
+          id: String(c.id),
           label: c.clinic_name,
         }));
 
@@ -59,8 +59,8 @@ export default function AddVisit() {
 
         setForm((prev) => ({
           ...prev,
-          patient_id: prev.patient_id || patientOptions[0]?.id || 0,
-          clinic_id: prev.clinic_id || clinicOptions[0]?.id || 0,
+          patient_id: prev.patient_id || patientOptions[0]?.id || '',
+          clinic_id: prev.clinic_id || clinicOptions[0]?.id || '',
         }));
       } catch {
         setError('Failed to load patients/clinics.');
@@ -87,6 +87,8 @@ export default function AddVisit() {
         '/visits',
         {
           ...form,
+          patient_id: Number(form.patient_id),
+          clinic_id: Number(form.clinic_id),
           visit_date: `${form.visit_date}T00:00:00`,
         },
         { headers: authHeaders() }
@@ -111,8 +113,9 @@ export default function AddVisit() {
           <select
             className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
             value={form.patient_id}
-            onChange={(e) => setForm({ ...form, patient_id: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
           >
+            <option value="" disabled>Select a patient</option>
             {patients.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
@@ -135,8 +138,9 @@ export default function AddVisit() {
           <select
             className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
             value={form.clinic_id}
-            onChange={(e) => setForm({ ...form, clinic_id: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, clinic_id: e.target.value })}
           >
+            <option value="" disabled>Select a clinic</option>
             {clinics.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
             ))}

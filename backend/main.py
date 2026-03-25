@@ -86,6 +86,11 @@ def require_admin(current_user: models.User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
 
+def require_staff(current_user: models.User):
+    if current_user.role != "staff":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+
+
 def to_visit_expanded(visit: models.Visit) -> schemas.VisitExpanded:
     return schemas.VisitExpanded(
         id=visit.id,
@@ -260,6 +265,8 @@ def create_patient(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
+    require_staff(current_user)
+
     count = db.query(models.Patient).count()
     display_id = f"MKN-{count + 1:03d}"
 

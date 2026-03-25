@@ -1,4 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { brandLogoUrl } from '../lib/branding';
 
 export default function Layout() {
   const token = localStorage.getItem('token');
@@ -13,9 +14,12 @@ export default function Layout() {
     { to: '/', label: 'Dashboard' },
     { to: '/patients', label: 'Patients' },
     { to: '/visits/add', label: 'Add Visit' },
-    { to: '/patients/register', label: 'Register' },
     { to: '/about', label: 'About' },
   ];
+
+  if (role === 'staff') {
+    navItems.splice(3, 0, { to: '/patients/register', label: 'Register' });
+  }
 
   if (role === 'admin') {
     navItems.splice(4, 0, { to: '/clinics', label: 'Clinics' });
@@ -25,16 +29,23 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 pb-12">
       <header className="bg-[#5CA6E2] text-white p-4 shadow-md flex justify-between items-center">
-        <div>
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 sm:h-14 sm:w-14 bg-white rounded-lg p-1.5 shadow-sm">
+            <img src={brandLogoUrl} alt="Health Link logo" className="h-full w-full object-contain" />
+          </div>
+          <div>
           <h1 className="text-xl font-bold">Health Link Mukono</h1>
           <p className="text-xs opacity-90">Role: {role}</p>
+          </div>
         </div>
         <button 
           onClick={async () => {
             try {
               const { account } = await import('../lib/appwrite');
               await account.deleteSession('current');
-            } catch (e) {}
+            } catch {
+              // Continue logout cleanup even if session deletion fails.
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('role');
             localStorage.removeItem('full_name');

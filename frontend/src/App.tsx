@@ -9,6 +9,7 @@ import RegisterPatient from './pages/RegisterPatient';
 import Clinics from './pages/Clinics';
 import AllVisits from './pages/AllVisits';
 import About from './pages/About';
+import RoleGuard from './components/RoleGuard';
 
 function App() {
   return (
@@ -17,11 +18,32 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="patients" element={<Patients />} />
-        <Route path="patients/register" element={<RegisterPatient />} />
+        <Route
+          path="patients/register"
+          element={
+            <RoleGuard allowedRoles={['staff']} redirectTo="/patients">
+              <RegisterPatient />
+            </RoleGuard>
+          }
+        />
         <Route path="patients/:id" element={<PatientDetails />} />
         <Route path="visits/add" element={<AddVisit />} />
-        <Route path="visits" element={<AllVisits />} />
-        <Route path="clinics" element={<Clinics />} />
+        <Route
+          path="visits"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <AllVisits />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="clinics"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <Clinics />
+            </RoleGuard>
+          }
+        />
         <Route path="about" element={<About />} />
       </Route>
     </Routes>

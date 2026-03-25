@@ -17,3 +17,17 @@ client
 
 export const account = new Account(client);
 export const databases = new Databases(client);
+
+export async function clearCurrentSession() {
+    try {
+        await account.deleteSession('current');
+    } catch {
+        // Ignore when there is no active session.
+    }
+}
+
+export async function createOrReplaceEmailPasswordSession(email: string, password: string) {
+    // Appwrite rejects creating a new session if one is already active on this client.
+    await clearCurrentSession();
+    return account.createEmailPasswordSession(email, password);
+}

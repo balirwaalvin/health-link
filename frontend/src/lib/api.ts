@@ -158,6 +158,12 @@ export const api = {
   },
 
   put: async (url: string, data?: any, _config?: any) => {
+    if (url.match(/^\/patients\/(.+)$/)) {
+      const id = url.split('/')[2];
+      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
+      const d: any = await databases.updateDocument(DB, PATIENTS, id, updateData);
+      return { data: { ...d, id: d.$id } };
+    }
     if (url.match(/^\/clinics\/(.+)$/)) {
       const id = url.split('/')[2];
       const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
@@ -174,6 +180,15 @@ export const api = {
   },
 
   delete: async (url: string, _config?: any) => {
+    if (url.match(/^\/patients\/(.+)$/)) {
+      const id = url.split('/')[2];
+      const linkedVisits = await databases.listDocuments(DB, VISITS, [Query.equal('patient_id', id), Query.limit(5000)]);
+      await Promise.all(
+        linkedVisits.documents.map((visit: any) => databases.deleteDocument(DB, VISITS, visit.$id))
+      );
+      await databases.deleteDocument(DB, PATIENTS, id);
+      return { data: { success: true } };
+    }
     if (url.match(/^\/clinics\/(.+)$/)) {
       const id = url.split('/')[2];
       await databases.deleteDocument(DB, CLINICS, id);

@@ -70,12 +70,17 @@ export default function PatientDetails() {
     }
   };
 
-  const verifyOtp = () => {
-    if (otp === '48291') {
-      setHasAccess(true);
-      setOtpMessage('Access granted for this session.');
-    } else {
-      setOtpMessage('Invalid OTP.');
+  const verifyOtp = async () => {
+    try {
+      const res = await api.post(
+        `/patients/${patientId}/verify-access`,
+        { otp },
+        { headers: authHeaders() }
+      );
+      setHasAccess(Boolean(res.data?.access_granted));
+      setOtpMessage(res.data?.message || 'OTP verification complete.');
+    } catch (error: unknown) {
+      setOtpMessage(getErrorMessage(error, 'Could not verify OTP.'));
     }
   };
 
@@ -183,9 +188,11 @@ export default function PatientDetails() {
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-gray-800">Visit History</h3>
-                <Link to={`/visits/add?patientId=${patient.id}`} className="text-[#318542] hover:text-green-700 p-1 flex items-center gap-1 font-medium text-sm">
-                  <PlusCircle className="w-4 h-4" /> Add Visit
-                </Link>
+                {!isAdmin && (
+                  <Link to={`/visits/add?patientId=${patient.id}`} className="text-[#318542] hover:text-green-700 p-1 flex items-center gap-1 font-medium text-sm">
+                    <PlusCircle className="w-4 h-4" /> Add Visit
+                  </Link>
+                )}
               </div>
 
               <div className="space-y-3">

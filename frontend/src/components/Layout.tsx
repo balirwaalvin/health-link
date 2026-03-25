@@ -13,11 +13,11 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Dashboard' },
     { to: '/patients', label: 'Patients' },
-    { to: '/visits/add', label: 'Add Visit' },
     { to: '/about', label: 'About' },
   ];
 
   if (role === 'staff') {
+    navItems.splice(2, 0, { to: '/visits/add', label: 'Add Visit' });
     navItems.splice(3, 0, { to: '/patients/register', label: 'Register' });
   }
 

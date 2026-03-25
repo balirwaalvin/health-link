@@ -27,7 +27,14 @@ function App() {
           }
         />
         <Route path="patients/:id" element={<PatientDetails />} />
-        <Route path="visits/add" element={<AddVisit />} />
+        <Route
+          path="visits/add"
+          element={
+            <RoleGuard allowedRoles={['staff']} redirectTo="/visits">
+              <AddVisit />
+            </RoleGuard>
+          }
+        />
         <Route
           path="visits"
           element={

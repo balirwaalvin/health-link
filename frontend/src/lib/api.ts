@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { databases, appwriteConfig } from './appwrite';
 import { ID, Query } from 'appwrite';
 
@@ -5,6 +7,8 @@ const DB = appwriteConfig.databaseId;
 const PATIENTS = appwriteConfig.patientsCollectionId;
 const CLINICS = appwriteConfig.clinicsCollectionId;
 const VISITS = appwriteConfig.visitsCollectionId;
+const OTP_VALID_MINUTES = 5;
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
 
 export const api = {
   get: async (url: string, config?: any) => {
@@ -79,6 +83,42 @@ export const api = {
   },
   
   post: async (url: string, data?: any, _config?: any) => {
+    if (url.match(/^\/patients\/(.+)\/request-access$/)) {
+      const patientId = url.split('/')[2];
+      const patient = await databases.getDocument(DB, PATIENTS, patientId);
+      const otpCode = String(Math.floor(10000 + Math.random() * 90000));
+      const key = `${patientId}:${localStorage.getItem('role') || 'staff'}`;
+      otpStore.set(key, {
+        otp: otpCode,
+        expiresAt: Date.now() + OTP_VALID_MINUTES * 60 * 1000,
+      });
+      return {
+        data: {
+          message: 'OTP email dispatched (prototype placeholder)',
+          email_to: (patient as { email?: string }).email || null,
+          otp_preview: otpCode,
+          valid_minutes: OTP_VALID_MINUTES,
+        },
+      };
+    }
+    if (url.match(/^\/patients\/(.+)\/verify-access$/)) {
+      const patientId = url.split('/')[2];
+      const key = `${patientId}:${localStorage.getItem('role') || 'staff'}`;
+      const otpEntry = otpStore.get(key);
+      if (!otpEntry) {
+        return { data: { message: 'No OTP request found.', access_granted: false } };
+      }
+      if (Date.now() > otpEntry.expiresAt) {
+        otpStore.delete(key);
+        return { data: { message: 'OTP expired. Request a new code.', access_granted: false } };
+      }
+      if ((data?.otp || '') !== otpEntry.otp) {
+        return { data: { message: 'Invalid OTP.', access_granted: false } };
+      }
+      otpStore.delete(key);
+      return { data: { message: 'Access granted for this session.', access_granted: true } };
+    }
+
     if (url === '/patients') {
       const d: any = await databases.createDocument(DB, PATIENTS, ID.unique(), {
         full_name: data.full_name,
@@ -97,6 +137,11 @@ export const api = {
       return { data: { ...d, id: d.$id } };
     }
     if (url === '/visits') {
+      const role = localStorage.getItem('role') || 'staff';
+      if (role !== 'staff') {
+        throw new Error('Only staff can create visits.');
+      }
+
       const payload = {
          diagnosis: data.diagnosis,
          prescription: data.prescription,

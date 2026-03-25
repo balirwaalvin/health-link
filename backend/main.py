@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
+import secrets
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import text
@@ -79,6 +80,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
+OTP_VALID_MINUTES = 5
+otp_store: dict[tuple[int, int], dict[str, datetime | str]] = {}
 
 
 def require_admin(current_user: models.User):
@@ -338,12 +342,45 @@ def request_patient_access(
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
+
+    otp_code = f"{secrets.randbelow(90000) + 10000}"
+    expires_at = datetime.utcnow() + timedelta(minutes=OTP_VALID_MINUTES)
+    otp_store[(patient_id, current_user.id)] = {"otp": otp_code, "expires_at": expires_at}
+
     return {
         "message": "OTP email dispatched (prototype placeholder)",
         "email_to": patient.email,
-        "otp_preview": "48291",
-        "valid_minutes": 5,
+        "otp_preview": otp_code,
+        "valid_minutes": OTP_VALID_MINUTES,
     }
+
+
+@app.post("/patients/{patient_id}/verify-access", response_model=schemas.OtpVerifyResponse)
+def verify_patient_access(
+    patient_id: int,
+    payload: schemas.OtpVerifyRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    otp_entry = otp_store.get((patient_id, current_user.id))
+    if not otp_entry:
+        return {"message": "No OTP request found.", "access_granted": False}
+
+    expires_at = otp_entry["expires_at"]
+    if not isinstance(expires_at, datetime) or datetime.utcnow() > expires_at:
+        otp_store.pop((patient_id, current_user.id), None)
+        return {"message": "OTP expired. Request a new code.", "access_granted": False}
+
+    stored_otp = otp_entry["otp"]
+    if not isinstance(stored_otp, str) or payload.otp != stored_otp:
+        return {"message": "Invalid OTP.", "access_granted": False}
+
+    otp_store.pop((patient_id, current_user.id), None)
+    return {"message": "Access granted for this session.", "access_granted": True}
 
 @app.get("/clinics", response_model=List[schemas.Clinic])
 def get_clinics(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -432,6 +469,8 @@ def create_visit(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
+    require_staff(current_user)
+
     patient = db.query(models.Patient).filter(models.Patient.id == visit.patient_id).first()
     clinic = db.query(models.Clinic).filter(models.Clinic.id == visit.clinic_id).first()
     if not patient:

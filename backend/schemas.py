@@ -80,6 +80,15 @@ class OtpResponse(BaseModel):
     valid_minutes: int
 
 
+class OtpVerifyRequest(BaseModel):
+    otp: str
+
+
+class OtpVerifyResponse(BaseModel):
+    message: str
+    access_granted: bool
+
+
 class PatientUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None

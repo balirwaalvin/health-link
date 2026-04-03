@@ -8,10 +8,10 @@ type RoleGuardProps = {
 };
 
 export default function RoleGuard({ allowedRoles, children, redirectTo = '/' }: RoleGuardProps) {
-  const token = localStorage.getItem('token');
+  const isSignedIn = Boolean(localStorage.getItem('session_token'));
   const role = (localStorage.getItem('role') || 'staff') as 'admin' | 'staff';
 
-  if (!token) {
+  if (!isSignedIn) {
     return <Navigate to="/login" replace />;
   }
 

@@ -1,32 +1,47 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { account, createOrReplaceEmailPasswordSession } from '../lib/appwrite';
-import { brandColors, brandLogoUrl } from '../lib/branding';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { api, getErrorMessage } from '../lib/api';
+import { brandColors } from '../lib/branding';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setSubmitting(true);
+    setError(null);
+
     try {
-      await createOrReplaceEmailPasswordSession(email, password);
-      const user = await account.get();
-      
-      localStorage.setItem('token', 'appwrite_session');
-      const userRole = user.labels?.includes('admin') ? 'admin' : 'staff';
-      localStorage.setItem('role', userRole);
-      localStorage.setItem('full_name', user.name || email);
-      navigate('/');
+      const response = await api.post('/auth/login', {
+        email: email.trim(),
+        password,
+      });
+
+      const token = response?.data?.access_token;
+      if (!token) {
+        setError('Login did not return an access token.');
+        return;
+      }
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('session_token', token);
+      localStorage.setItem('role', response.data?.role || 'staff');
+      localStorage.setItem('full_name', response.data?.name || response.data?.email || 'User');
+
+      navigate('/', { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid credentials.';
-      setError(message);
+      setError(getErrorMessage(err, 'Invalid email or password.'));
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const isSignedIn = Boolean(localStorage.getItem('session_token'));
 
   return (
     <div
@@ -36,72 +51,63 @@ export default function Login() {
           'radial-gradient(circle at 18% 20%, rgba(92, 166, 226, 0.22) 0%, rgba(92, 166, 226, 0) 40%), radial-gradient(circle at 82% 82%, rgba(223, 50, 50, 0.16) 0%, rgba(223, 50, 50, 0) 38%), #f2f7fc',
       }}
     >
-      <div className="relative w-full max-w-sm sm:max-w-md">
-        <div
-          className="pointer-events-none absolute -inset-1.5 sm:-inset-2.5 rounded-[1.4rem] blur-xl sm:blur-2xl"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(92,166,226,0.35) 0%, rgba(92,166,226,0.12) 40%, rgba(223,50,50,0.28) 100%)',
-          }}
-        />
+      {isSignedIn ? (
+        <Navigate to="/" replace />
+      ) : (
+        <div className="w-full max-w-sm sm:max-w-md">
+          <h1 className="text-2xl font-bold text-center mb-4" style={{ color: brandColors.primaryBlue }}>
+            Health Link
+          </h1>
+          <div className="shadow-xl border border-white/80 rounded-2xl bg-white p-5 sm:p-6">
+            <h2 className="text-lg font-semibold mb-1" style={{ color: brandColors.primaryBlue }}>
+              Sign in
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">Use your email and password.</p>
 
-        <div
-          className="relative bg-white/95 backdrop-blur-sm p-5 sm:p-8 rounded-[1.25rem] sm:rounded-2xl w-full border border-white/80"
-          style={{
-            boxShadow:
-              '0 0 0 1px rgba(92,166,226,0.2), 0 0 16px rgba(92,166,226,0.18), 0 0 34px rgba(223,50,50,0.12), 0 12px 26px rgba(24, 48, 82, 0.14)',
-          }}
-        >
-          <div className="text-center mb-5 sm:mb-6">
-            <div
-              className="mx-auto mb-3 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-2 flex items-center justify-center"
-              style={{ boxShadow: '0 0 14px rgba(92,166,226,0.34), inset 0 0 10px rgba(223,50,50,0.12)' }}
-            >
-              <img src={brandLogoUrl} alt="Health Link logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2" style={{ color: brandColors.primaryBlue }}>Health Link</h1>
-            <p className="text-gray-500">Mukono District</p>
+              <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]"
+                />
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-lg bg-[#5CA6E2] text-white py-2.5 text-sm font-semibold disabled:opacity-60"
+              >
+                {submitting ? 'Signing in...' : 'Sign in'}
+              </button>
+              </form>
           </div>
-
-          {error && <div className="bg-red-100 text-[#DF3232] p-3 rounded mb-4 text-sm">{error}</div>}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                className="w-full border-gray-300 border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]/50"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                className="w-full border-gray-300 border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]/50"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full text-white p-3 rounded-lg font-bold transition shadow-md hover:brightness-105"
-              style={{
-                background: 'linear-gradient(90deg, #5CA6E2 0%, #4f95d3 55%, #DF3232 100%)',
-              }}
-            >
-              Login
-            </button>
-          </form>
         </div>
-      </div>
-
-      <div className="fixed bottom-0 w-full left-0 bg-[#DF3232] text-white text-center text-xs py-2 font-semibold shadow-lg z-50">
-        PROTOTYPE - NOT FOR REAL MEDICAL USE
-      </div>
+      )}
     </div>
   );
 }

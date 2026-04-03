@@ -1,210 +1,148 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { databases, appwriteConfig } from './appwrite';
-import { ID, Query } from 'appwrite';
+import axios from 'axios';
 
-const DB = appwriteConfig.databaseId;
-const PATIENTS = appwriteConfig.patientsCollectionId;
-const CLINICS = appwriteConfig.clinicsCollectionId;
-const VISITS = appwriteConfig.visitsCollectionId;
-const OTP_VALID_MINUTES = 5;
-const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+function toApiPath(url: string): string {
+  if (url.startsWith('/api/')) {
+    return url;
+  }
+  return `/api${url}`;
+}
+
+apiClient.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('clerk_token') || localStorage.getItem('session_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+function getStorageKey(patientId: string, role: string) {
+  return `otp-session:${patientId}:${role}`;
+}
+
+function setOtpSession(patientId: string, role: string, token: string) {
+  const payload = {
+    token,
+    expiresAt: Date.now() + 15 * 60 * 1000,
+  };
+  sessionStorage.setItem(getStorageKey(patientId, role), JSON.stringify(payload));
+}
+
+function clearOtpSession(patientId: string, role: string) {
+  sessionStorage.removeItem(getStorageKey(patientId, role));
+}
 
 export const api = {
   get: async (url: string, config?: any) => {
-    if (url === '/dashboard/stats') {
-      const p = await databases.listDocuments(DB, PATIENTS, [Query.limit(1)]);
-      const c = await databases.listDocuments(DB, CLINICS, [Query.limit(1)]);
-      const v = await databases.listDocuments(DB, VISITS, [Query.limit(1)]);
-      return { 
-        data: { 
-          patients: p.total, 
-          clinics: c.total, 
-          visits: v.total, 
-          role: localStorage.getItem('role') || 'staff' 
-        } 
-      };
-    }
-    if (url === '/patients') {
-      const res = await databases.listDocuments(DB, PATIENTS, [Query.orderDesc('$createdAt')]);
-      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
-    }
-    if (url.match(/^\/patients\/(.+)$/)) {
-      const id = url.split('/')[2];
-      if (url.includes('/visits')) {
-        const res = await databases.listDocuments(DB, VISITS, [Query.equal('patient_id', id), Query.orderDesc('$createdAt')]);
-        return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
-      }
-      const d: any = await databases.getDocument(DB, PATIENTS, id);
-      return { data: { ...d, id: d.$id } };
-    }
-    if (url === '/visits') {
-      const [visitsRes, patientsRes, clinicsRes] = await Promise.all([
-        databases.listDocuments(DB, VISITS, [Query.orderDesc('$createdAt')]),
-        databases.listDocuments(DB, PATIENTS, [Query.limit(5000)]),
-        databases.listDocuments(DB, CLINICS, [Query.limit(5000)]),
-      ]);
-
-      const patientById = new Map(
-        patientsRes.documents.map((p: any) => [String(p.$id), p])
-      );
-      const clinicById = new Map(
-        clinicsRes.documents.map((c: any) => [String(c.$id), c])
-      );
-
-      let visits = visitsRes.documents.map((d: any) => {
-        const patient = patientById.get(String(d.patient_id));
-        const clinic = clinicById.get(String(d.clinic_id));
+    try {
+      if (url === '/dashboard/stats') {
+        const [patientsRes, clinicsRes, visitsRes] = await Promise.all([
+          apiClient.get('/api/patients?limit=5000'),
+          apiClient.get('/api/clinics?limit=5000'),
+          apiClient.get('/api/visits?limit=5000'),
+        ]);
         return {
-          ...d,
-          id: d.$id,
-          patient_name: d.patient_name || patient?.full_name || 'Unknown Patient',
-          patient_display_id: d.patient_display_id || patient?.display_id || 'N/A',
-          clinic_name: d.clinic_name || clinic?.clinic_name || 'Unknown Clinic',
+          data: {
+            patients: Array.isArray(patientsRes.data) ? patientsRes.data.length : 0,
+            clinics: Array.isArray(clinicsRes.data) ? clinicsRes.data.length : 0,
+            visits: Array.isArray(visitsRes.data) ? visitsRes.data.length : 0,
+            role: localStorage.getItem('role') || 'staff',
+          },
         };
-      });
+      }
 
-      const searchValue = (config?.params?.search || '').toString().trim().toLowerCase();
-      if (searchValue) {
-        visits = visits.filter((visit: any) =>
+      const res = await apiClient.get(toApiPath(url), config);
+
+      if (url === '/visits' && config?.params?.search && Array.isArray(res.data)) {
+        const searchValue = String(config.params.search).trim().toLowerCase();
+        const filtered = res.data.filter((visit: any) =>
           [visit.patient_name, visit.patient_display_id, visit.clinic_name, visit.diagnosis]
             .map((value) => (value || '').toString().toLowerCase())
             .some((value) => value.includes(searchValue))
         );
+        return { data: filtered };
       }
 
-      return { data: visits };
+      return { data: res.data };
+    } catch (error: any) {
+      console.error(`API GET ${url} failed:`, error);
+      throw error;
     }
-    if (url === '/clinics') {
-      const res = await databases.listDocuments(DB, CLINICS, [Query.orderDesc('$createdAt')]);
-      return { data: res.documents.map((d: any) => ({...d, id: d.$id})) };
-    }
-    throw new Error('Not found: ' + url);
   },
-  
+
   post: async (url: string, data?: any, _config?: any) => {
-    if (url.match(/^\/patients\/(.+)\/request-access$/)) {
-      const patientId = url.split('/')[2];
-      const patient = await databases.getDocument(DB, PATIENTS, patientId);
-      const otpCode = String(Math.floor(10000 + Math.random() * 90000));
-      const key = `${patientId}:${localStorage.getItem('role') || 'staff'}`;
-      otpStore.set(key, {
-        otp: otpCode,
-        expiresAt: Date.now() + OTP_VALID_MINUTES * 60 * 1000,
-      });
-      return {
-        data: {
-          message: 'OTP email dispatched (prototype placeholder)',
-          email_to: (patient as { email?: string }).email || null,
-          otp_preview: otpCode,
-          valid_minutes: OTP_VALID_MINUTES,
-        },
-      };
-    }
-    if (url.match(/^\/patients\/(.+)\/verify-access$/)) {
-      const patientId = url.split('/')[2];
-      const key = `${patientId}:${localStorage.getItem('role') || 'staff'}`;
-      const otpEntry = otpStore.get(key);
-      if (!otpEntry) {
-        return { data: { message: 'No OTP request found.', access_granted: false } };
-      }
-      if (Date.now() > otpEntry.expiresAt) {
-        otpStore.delete(key);
-        return { data: { message: 'OTP expired. Request a new code.', access_granted: false } };
-      }
-      if ((data?.otp || '') !== otpEntry.otp) {
-        return { data: { message: 'Invalid OTP.', access_granted: false } };
-      }
-      otpStore.delete(key);
-      return { data: { message: 'Access granted for this session.', access_granted: true } };
-    }
-
-    if (url === '/patients') {
-      const d: any = await databases.createDocument(DB, PATIENTS, ID.unique(), {
-        full_name: data.full_name,
-        phone: data.phone,
-        email: data.email || null,
-        display_id: `MKN-${Math.floor(Math.random() * 10000)}`
-      });
-      return { data: { ...d, id: d.$id } };
-    }
-    if (url === '/clinics') {
-      const d: any = await databases.createDocument(DB, CLINICS, ID.unique(), {
-        clinic_name: data.clinic_name,
-        location: data.location,
-        contact_phone: data.contact_phone
-      });
-      return { data: { ...d, id: d.$id } };
-    }
-    if (url === '/visits') {
-      const role = localStorage.getItem('role') || 'staff';
-      if (role !== 'staff') {
-        throw new Error('Only staff can create visits.');
+    try {
+      if (url.match(/^\/patients\/(.+)\/request-access$/)) {
+        const patientId = url.split('/')[2];
+        const res = await apiClient.post(toApiPath(url), data);
+        const role = localStorage.getItem('role') || 'staff';
+        setOtpSession(patientId, role, 'otp-sent');
+        return {
+          data: {
+            message: res.data?.message || 'Verification email sent. Check your inbox.',
+            email_to: res.data?.email || '',
+            otp_preview: res.data?.otp_preview,
+            valid_minutes: res.data?.valid_minutes || 5,
+          },
+        };
       }
 
-      const payload = {
-         diagnosis: data.diagnosis,
-         prescription: data.prescription,
-         notes: data.notes || '',
-         visit_date: data.visit_date || new Date().toISOString(),
-         patient_id: String(data.patient_id),
-         clinic_id: String(data.clinic_id),
-         created_by_name: localStorage.getItem('full_name') || 'staff'
-      };
-      const d: any = await databases.createDocument(DB, VISITS, ID.unique(), payload);
-      return { data: { ...d, id: d.$id } };
+      if (url.match(/^\/patients\/(.+)\/verify-access$/)) {
+        const patientId = url.split('/')[2];
+        const role = localStorage.getItem('role') || 'staff';
+        const res = await apiClient.post(toApiPath(url), data);
+        if (res.data?.access_granted) {
+          clearOtpSession(patientId, role);
+        }
+        return { data: res.data };
+      }
+
+      const res = await apiClient.post(toApiPath(url), data);
+      return { data: res.data };
+    } catch (error: any) {
+      console.error(`API POST ${url} failed:`, error);
+      throw error;
     }
-    throw new Error('Not found: ' + url);
   },
 
   put: async (url: string, data?: any, _config?: any) => {
-    if (url.match(/^\/patients\/(.+)$/)) {
-      const id = url.split('/')[2];
-      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
-      const d: any = await databases.updateDocument(DB, PATIENTS, id, updateData);
-      return { data: { ...d, id: d.$id } };
+    try {
+      const res = await apiClient.put(toApiPath(url), data);
+      return { data: res.data };
+    } catch (error: any) {
+      console.error(`API PUT ${url} failed:`, error);
+      throw error;
     }
-    if (url.match(/^\/clinics\/(.+)$/)) {
-      const id = url.split('/')[2];
-      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
-      const d: any = await databases.updateDocument(DB, CLINICS, id, updateData);
-      return { data: { ...d, id: d.$id } };
-    }
-    if (url.match(/^\/visits\/(.+)$/)) {
-      const id = url.split('/')[2];
-      const { id: _, $id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId, ...updateData } = data;
-      const d: any = await databases.updateDocument(DB, VISITS, id, updateData);
-      return { data: { ...d, id: d.$id } };
-    }
-    throw new Error('Not found');
   },
 
   delete: async (url: string, _config?: any) => {
-    if (url.match(/^\/patients\/(.+)$/)) {
-      const id = url.split('/')[2];
-      const linkedVisits = await databases.listDocuments(DB, VISITS, [Query.equal('patient_id', id), Query.limit(5000)]);
-      await Promise.all(
-        linkedVisits.documents.map((visit: any) => databases.deleteDocument(DB, VISITS, visit.$id))
-      );
-      await databases.deleteDocument(DB, PATIENTS, id);
-      return { data: { success: true } };
+    try {
+      const res = await apiClient.delete(toApiPath(url));
+      return { data: res.data };
+    } catch (error: any) {
+      console.error(`API DELETE ${url} failed:`, error);
+      throw error;
     }
-    if (url.match(/^\/clinics\/(.+)$/)) {
-      const id = url.split('/')[2];
-      await databases.deleteDocument(DB, CLINICS, id);
-      return { data: { success: true } };
-    }
-    if (url.match(/^\/visits\/(.+)$/)) {
-      const id = url.split('/')[2];
-      await databases.deleteDocument(DB, VISITS, id);
-      return { data: { success: true } };
-    }
-    throw new Error('Not found');
-  }
+  },
 };
 
-export function authHeaders() { return {}; }
+export function authHeaders() {
+  return {};
+}
 
 export function getErrorMessage(error: any, fallback: string) {
+  if (error?.response?.data?.detail) {
+    return String(error.response.data.detail);
+  }
   return error?.message || fallback;
 }

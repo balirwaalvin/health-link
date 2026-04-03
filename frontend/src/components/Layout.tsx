@@ -1,12 +1,13 @@
-import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { brandLogoUrl } from '../lib/branding';
 
 export default function Layout() {
-  const token = localStorage.getItem('token');
+  const navigate = useNavigate();
+  const isSignedIn = Boolean(localStorage.getItem('session_token'));
   const role = localStorage.getItem('role') || 'staff';
   const location = useLocation();
 
-  if (!token) {
+  if (!isSignedIn) {
     return <Navigate to="/login" replace />;
   }
 
@@ -34,22 +35,19 @@ export default function Layout() {
             <img src={brandLogoUrl} alt="Health Link logo" className="h-full w-full object-contain" />
           </div>
           <div>
-          <h1 className="text-xl font-bold">Health Link Mukono</h1>
-          <p className="text-xs opacity-90">Role: {role}</p>
+            <h1 className="text-xl font-bold">Health Link Mukono</h1>
+            <p className="text-xs opacity-90">Role: {role}</p>
           </div>
         </div>
-        <button 
-          onClick={async () => {
-            try {
-              const { account } = await import('../lib/appwrite');
-              await account.deleteSession('current');
-            } catch {
-              // Continue logout cleanup even if session deletion fails.
-            }
+
+        <button
+          onClick={() => {
             localStorage.removeItem('token');
+            localStorage.removeItem('session_token');
             localStorage.removeItem('role');
             localStorage.removeItem('full_name');
-            window.location.href = '/login';
+            sessionStorage.clear();
+            navigate('/login', { replace: true });
           }}
           className="text-sm bg-white/20 px-3 py-1 rounded hover:bg-white/30"
         >

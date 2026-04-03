@@ -1,0 +1,23 @@
+{
+  "name": "health-link-backend-node",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/seed.js",
+    "disable-mfa": "node src/disableMfa.js"
+  },
+  "dependencies": {
+    "@clerk/backend": "^1.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "nodemailer": "^8.0.4",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

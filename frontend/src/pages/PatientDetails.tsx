@@ -64,7 +64,7 @@ export default function PatientDetails() {
   const requestAccess = async () => {
     try {
       const res = await api.post(`/patients/${patientId}/request-access`, {}, { headers: authHeaders() });
-      setOtpMessage(`OTP sent to ${res.data.email_to || 'patient email'} (Prototype code: ${res.data.otp_preview})`);
+      setOtpMessage(res.data?.message || `OTP sent to ${res.data.email_to || 'patient email'}.`);
       setShowOtpInput(true);
     } catch (error: unknown) {
       setError(getErrorMessage(error, 'Could not request access.'));
@@ -169,7 +169,7 @@ export default function PatientDetails() {
             <div className="bg-blue-50 p-4 rounded-lg flex flex-col items-center justify-center text-center">
               <Lock className="w-8 h-8 text-[#5CA6E2] mb-2" />
               <h3 className="font-bold text-gray-700 mb-1">Protected Medical History</h3>
-              <p className="text-xs text-gray-500 mb-4">Request access to send OTP email (prototype).</p>
+              <p className="text-xs text-gray-500 mb-4">Request access to send a verification email OTP.</p>
 
               {!showOtpInput ? (
                 <button onClick={requestAccess} className="bg-[#5CA6E2] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-500 transition">

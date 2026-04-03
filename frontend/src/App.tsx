@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -10,12 +10,16 @@ import Clinics from './pages/Clinics';
 import AllVisits from './pages/AllVisits';
 import About from './pages/About';
 import RoleGuard from './components/RoleGuard';
+import AuthSessionSync from './components/AuthSessionSync';
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Layout />}>
+    <>
+      <AuthSessionSync />
+      <Routes>
+        <Route path="/login/*" element={<Login />} />
+        <Route path="/sign-up/*" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="patients" element={<Patients />} />
         <Route
@@ -52,8 +56,10 @@ function App() {
           }
         />
         <Route path="about" element={<About />} />
-      </Route>
-    </Routes>
+        </Route>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </>
   );
 }
 

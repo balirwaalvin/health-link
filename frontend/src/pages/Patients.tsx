@@ -34,7 +34,7 @@ export default function Patients() {
       setPatients(normalized);
       setError('');
     } catch {
-      setError('Failed to fetch patients. Ensure backend is running.');
+      setError('Failed to fetch patients. Check your backend connection and session.');
     }
   }, []);
 

@@ -1,103 +1,21 @@
-const path = require('path');
-const dotenv = require('dotenv');
-const { verifyToken } = require('@clerk/backend');
-const { Client, Account } = require('node-appwrite');
-const db = require('./db');
-const { verifyLocalToken } = require('./localAuth');
+const { getAccountServiceForJwt } = require('./appwriteClient');
+const store = require('./appwriteStore');
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-if (!process.env.CLERK_SECRET_KEY) {
-  dotenv.config({ path: path.join(__dirname, '..', '..', 'backend', '.env') });
-}
-
-const APPWRITE_ENDPOINT = String(process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1').trim();
-const APPWRITE_PROJECT_ID = String(process.env.APPWRITE_PROJECT_ID || '').trim();
-
-async function upsertUserFromTokenClaims(claims) {
-  const clerkId = claims.sub;
-  const email = claims.email || claims.email_address || `${clerkId}@clerk.local`;
-  const name = claims.name || '';
-
-  const existing = await db.query('SELECT * FROM users WHERE clerk_id = $1 LIMIT 1', [clerkId]);
-  if (existing.rows.length > 0) {
-    return existing.rows[0];
+function defaultRoleForEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) {
+    return 'staff';
   }
 
-  const byEmail = await db.query('SELECT * FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [email]);
-  if (byEmail.rows.length > 0) {
-    const updated = await db.query(
-      'UPDATE users SET clerk_id = $1, name = COALESCE(NULLIF($2, \'\'), name), updated_at = NOW() WHERE id = $3 RETURNING *',
-      [clerkId, name, byEmail.rows[0].id]
-    );
-    return updated.rows[0];
+  if (normalized === String(process.env.ADMIN_EMAIL || '').trim().toLowerCase()) {
+    return 'admin';
   }
 
-  const inserted = await db.query(
-    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
-    [clerkId, email, name, 'staff']
-  );
-  return inserted.rows[0];
-}
-
-async function upsertUserFromLocalClaims(claims) {
-  const email = claims.email;
-  if (!email) {
-    throw new Error('Local token is missing email claim');
+  if (normalized === String(process.env.STAFF_EMAIL || '').trim().toLowerCase()) {
+    return 'staff';
   }
 
-  const name = claims.name || '';
-  const role = claims.role || 'staff';
-  const localId = `local-${email}`.replace(/[^a-zA-Z0-9:_-]/g, '-');
-
-  const existing = await db.query('SELECT * FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [email]);
-  if (existing.rows.length > 0) {
-    const updated = await db.query(
-      "UPDATE users SET name = COALESCE(NULLIF($1, ''), name), role = COALESCE($2, role), clerk_id = COALESCE(clerk_id, $3), updated_at = NOW() WHERE id = $4 RETURNING *",
-      [name, role, localId, existing.rows[0].id]
-    );
-    return updated.rows[0];
-  }
-
-  const inserted = await db.query(
-    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
-    [localId, email, name, role]
-  );
-  return inserted.rows[0];
-}
-
-async function verifyAppwriteJwt(token) {
-  if (!APPWRITE_PROJECT_ID) {
-    return null;
-  }
-
-  const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID).setJWT(token);
-  const account = new Account(client);
-  return account.get();
-}
-
-async function upsertUserFromAppwriteUser(appwriteUser) {
-  const email = String(appwriteUser?.email || '').trim().toLowerCase();
-  if (!email) {
-    throw new Error('Appwrite user is missing email');
-  }
-
-  const name = String(appwriteUser?.name || '').trim();
-  const appwriteId = `appwrite-${appwriteUser.$id}`;
-
-  const existing = await db.query('SELECT * FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [email]);
-  if (existing.rows.length > 0) {
-    const updated = await db.query(
-      "UPDATE users SET name = COALESCE(NULLIF($1, ''), name), clerk_id = COALESCE(clerk_id, $2), updated_at = NOW() WHERE id = $3 RETURNING *",
-      [name, appwriteId, existing.rows[0].id]
-    );
-    return updated.rows[0];
-  }
-
-  const inserted = await db.query(
-    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
-    [appwriteId, email, name, 'staff']
-  );
-  return inserted.rows[0];
+  return 'staff';
 }
 
 async function requireAuth(req, res, next) {
@@ -108,50 +26,34 @@ async function requireAuth(req, res, next) {
     }
 
     const token = header.slice('Bearer '.length).trim();
+    const account = getAccountServiceForJwt(token);
+    const appwriteUser = await account.get();
 
-    const appAuthSecret = process.env.APP_AUTH_SECRET || 'dev-local-auth-secret-change-me';
-    const localClaims = verifyLocalToken(token, appAuthSecret);
-    if (localClaims) {
-      const user = await upsertUserFromLocalClaims(localClaims);
-      req.auth = { claims: localClaims, user, source: 'local' };
-      return next();
+    const email = String(appwriteUser?.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(401).json({ detail: 'Authenticated Appwrite user is missing email' });
     }
 
-    try {
-      const appwriteUser = await verifyAppwriteJwt(token);
-      if (appwriteUser && appwriteUser.$id) {
-        const user = await upsertUserFromAppwriteUser(appwriteUser);
-        req.auth = {
-          claims: {
-            sub: appwriteUser.$id,
-            email: appwriteUser.email,
-            name: appwriteUser.name || '',
-            source: 'appwrite',
-          },
-          user,
-          source: 'appwrite',
-        };
-        return next();
-      }
-    } catch {
-      // Continue to Clerk verification fallback.
-    }
+    const user = await store.upsertUser({
+      email,
+      name: appwriteUser.name || '',
+      role: defaultRoleForEmail(email),
+      appwriteUserId: appwriteUser.$id,
+    });
 
-    if (!process.env.CLERK_SECRET_KEY) {
-      return res.status(401).json({ detail: 'Invalid or expired app token' });
-    }
+    req.auth = {
+      claims: {
+        sub: appwriteUser.$id,
+        email,
+        name: appwriteUser.name || '',
+      },
+      user,
+      source: 'appwrite',
+    };
 
-    const claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
-
-    if (!claims || !claims.sub) {
-      return res.status(401).json({ detail: 'Invalid Clerk token' });
-    }
-
-    const user = await upsertUserFromTokenClaims(claims);
-    req.auth = { claims, user };
     return next();
   } catch (error) {
-    return res.status(401).json({ detail: `Invalid or expired token: ${error.message}` });
+    return res.status(401).json({ detail: `Invalid or expired Appwrite token: ${error.message}` });
   }
 }
 

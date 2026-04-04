@@ -41,6 +41,13 @@ If your frontend is deployed on Appwrite Sites (or any hosted domain), also set 
 
 Without matching backend CORS origins, login can fail with browser `Network Error` even when the API is running.
 
+Backend must also be configured with Appwrite storage credentials for app data sync:
+
+1. `APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1`
+2. `APPWRITE_PROJECT_ID=<project-id>`
+3. `APPWRITE_API_KEY=<server-api-key>`
+4. `APPWRITE_DATA_BUCKET_ID=<bucket-id>`
+
 ## Build
 
 `npm run build`

@@ -1,16 +1,8 @@
-const path = require('path');
-const dotenv = require('dotenv');
-const { createClerkClient } = require('@clerk/backend');
-const db = require('./db');
+const { ID, Query } = require('node-appwrite');
+const { getUsersService } = require('./appwriteClient');
+const store = require('./appwriteStore');
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-if (!process.env.CLERK_SECRET_KEY) {
-  dotenv.config({ path: path.join(__dirname, '..', '..', 'backend', '.env') });
-}
-
-const clerkClient = process.env.CLERK_SECRET_KEY
-  ? createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
-  : null;
+const usersService = getUsersService();
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -27,90 +19,39 @@ const DEFAULT_ACCOUNTS = [
   },
 ];
 
-function splitName(fullName) {
-  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
-  return {
-    firstName: parts[0] || '',
-    lastName: parts.slice(1).join(' ') || '',
-  };
+async function findAppwriteUserByEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  const result = await usersService.list([Query.equal('email', [normalized]), Query.limit(1)]);
+  return result.users?.[0] || null;
 }
 
-function buildUsername(email) {
-  return String(email)
-    .split('@')[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/^_+|_+$/g, '') || 'healthlink_user';
-}
-
-async function syncClerkAccount(account) {
-  if (!clerkClient) {
-    throw new Error('CLERK_SECRET_KEY is missing. Cannot sync default accounts to Clerk.');
-  }
-
-  const { firstName, lastName } = splitName(account.name);
-  const username = buildUsername(account.email);
-  const { data } = await clerkClient.users.getUserList({ emailAddress: [account.email], limit: 1 });
-  const existing = data[0] || null;
-
+async function ensureAppwriteUser(account) {
+  const existing = await findAppwriteUserByEmail(account.email);
   if (existing) {
-    return clerkClient.users.updateUser(existing.id, {
-      firstName,
-      lastName,
-      username,
-      password: account.password,
-      skipLegalChecks: true,
-      publicMetadata: {
-        ...(existing.publicMetadata || {}),
-        role: account.role,
-      },
-    });
+    return existing;
   }
 
-  return clerkClient.users.createUser({
-    emailAddress: [account.email],
-    password: account.password,
-    firstName,
-    lastName,
-    username,
-    skipLegalChecks: true,
-    publicMetadata: {
-      role: account.role,
-    },
-  });
-}
-
-async function upsertAccount(account) {
-  const seedClerkId = `seed-${account.role}-${account.email}`.replace(/[^a-zA-Z0-9:_-]/g, '-');
-  const existing = await db.query('SELECT id FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [account.email]);
-
-  if (existing.rows.length > 0) {
-    const updated = await db.query(
-      'UPDATE users SET clerk_id = COALESCE(clerk_id, $1), name = $2, role = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
-      [seedClerkId, account.name, account.role, existing.rows[0].id]
-    );
-    return updated.rows[0];
-  }
-
-  const inserted = await db.query(
-    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
-    [seedClerkId, account.email, account.name, account.role]
-  );
-  return inserted.rows[0];
+  return usersService.create(ID.unique(), account.email, undefined, account.password, account.name);
 }
 
 async function seedDefaultAccounts() {
-  const results = [];
+  const seeded = [];
 
   for (const account of DEFAULT_ACCOUNTS) {
-    await syncClerkAccount(account);
-    results.push(await upsertAccount(account));
+    const appwriteUser = await ensureAppwriteUser(account);
+    const user = await store.upsertUser({
+      email: account.email,
+      name: account.name,
+      role: account.role,
+      appwriteUserId: appwriteUser.$id,
+    });
+    seeded.push(user);
   }
 
-  return results;
+  return seeded;
 }
 
 module.exports = {
-  seedDefaultAccounts,
   DEFAULT_ACCOUNTS,
+  seedDefaultAccounts,
 };

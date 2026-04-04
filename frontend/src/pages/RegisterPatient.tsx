@@ -19,6 +19,10 @@ export default function RegisterPatient() {
       setError('Phone number must be exactly 10 digits.');
       return;
     }
+    if (!form.email.trim()) {
+      setError('Email is required. OTP will be sent to this address.');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -40,7 +44,7 @@ export default function RegisterPatient() {
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
         <div className="bg-blue-50 text-[#5CA6E2] p-3 rounded-lg text-sm font-medium text-center mb-4 border border-blue-100">
-          Display ID auto-generates (MKN-001 format)
+          Display ID auto-generates (MKN-001 format) and OTP is sent to the patient email.
         </div>
 
         <div>
@@ -75,6 +79,7 @@ export default function RegisterPatient() {
             className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
           />
         </div>
 

@@ -21,6 +21,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
 const clerkClient = process.env.CLERK_SECRET_KEY
   ? createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
   : null;
+const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
+const resendFrom = String(process.env.RESEND_FROM || process.env.MAIL_FROM || '').trim();
 const smtpConfigured =
   !!process.env.SMTP_HOST &&
   !!process.env.SMTP_PORT &&
@@ -39,9 +41,64 @@ const mailTransporter = smtpConfigured
   })
   : null;
 
+async function sendViaResend({ to, code, validMinutes }) {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: resendFrom,
+      to: [to],
+      subject: 'Health Link access verification code',
+      text: `Your Health Link verification code is ${code}. It expires in ${validMinutes} minutes.`,
+      html: `<p>Your Health Link verification code is <strong>${code}</strong>.</p><p>This code expires in ${validMinutes} minutes.</p>`,
+    }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(`Resend API error (${response.status}): ${responseText}`);
+  }
+}
+
+async function getOrCreatePatientUser({ email, name }) {
+  const existing = await db.query('SELECT * FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [email]);
+
+  if (existing.rows.length > 0) {
+    const currentUser = existing.rows[0];
+    if (currentUser.role && currentUser.role !== 'patient') {
+      throw new Error('That email is already in use by another account.');
+    }
+
+    if (currentUser.name !== name || currentUser.role !== 'patient') {
+      const updated = await db.query(
+        'UPDATE users SET name = $1, role = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+        [name, 'patient', currentUser.id]
+      );
+      return updated.rows[0];
+    }
+
+    return currentUser;
+  }
+
+  const seedClerkId = `patient-${email}`.replace(/[^a-zA-Z0-9:_-]/g, '-');
+  const inserted = await db.query(
+    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
+    [seedClerkId, email, name, 'patient']
+  );
+  return inserted.rows[0];
+}
+
 async function sendPatientOtpEmail({ to, code, validMinutes }) {
+  if (resendApiKey && resendFrom) {
+    await sendViaResend({ to, code, validMinutes });
+    return;
+  }
+
   if (!mailTransporter) {
-    throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and MAIL_FROM.');
+    throw new Error('Email is not configured. Set RESEND_API_KEY and RESEND_FROM, or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and MAIL_FROM.');
   }
 
   await mailTransporter.sendMail({
@@ -166,80 +223,120 @@ app.get('/api/patients/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/patients', requireAuth, async (req, res) => {
-  const { full_name, first_name, last_name, phone } = req.body || {};
-  const userId = req.auth.user.id;
+  try {
+    const { full_name, first_name, last_name, phone, email } = req.body || {};
+    const patientEmail = String(email || '').trim().toLowerCase();
 
-  const existing = await db.query('SELECT id FROM patients WHERE user_id = $1 LIMIT 1', [userId]);
-  if (existing.rows.length > 0) {
-    return res.status(400).json({ detail: 'Patient profile already exists for this user' });
+    if (!patientEmail) {
+      return res.status(400).json({ detail: 'Patient email is required' });
+    }
+
+    const existing = await db.query(
+      `SELECT p.id
+       FROM patients p
+       INNER JOIN users u ON u.id = p.user_id
+       WHERE u.email = $1
+       LIMIT 1`,
+      [patientEmail]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ detail: 'A patient profile already exists for this email address' });
+    }
+
+    let fName = first_name;
+    let lName = last_name;
+    if ((!fName || !lName) && full_name) {
+      const parts = String(full_name).trim().split(' ');
+      fName = parts[0] || '';
+      lName = parts.slice(1).join(' ') || '';
+    }
+
+    if (!fName) {
+      return res.status(422).json({ detail: 'first_name or full_name is required' });
+    }
+
+    const patientName = `${String(fName).trim()} ${String(lName || '').trim()}`.trim();
+    const patientUser = await getOrCreatePatientUser({ email: patientEmail, name: patientName || fName });
+
+    const inserted = await db.query(
+      `INSERT INTO patients (user_id, first_name, last_name, phone, medical_history, blood_type, allergies, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING *`,
+      [patientUser.id, fName, lName || '', phone || null, 'N/A', 'N/A', 'N/A']
+    );
+
+    const p = inserted.rows[0];
+    return res.json({
+      ...p,
+      full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+      display_id: `MKN-${String(p.id).padStart(4, '0')}`,
+      email: patientUser.email,
+    });
+  } catch (error) {
+    return res.status(500).json({ detail: `Failed to create patient: ${error.message}` });
   }
-
-  let fName = first_name;
-  let lName = last_name;
-  if ((!fName || !lName) && full_name) {
-    const parts = String(full_name).trim().split(' ');
-    fName = parts[0] || '';
-    lName = parts.slice(1).join(' ') || '';
-  }
-
-  if (!fName) {
-    return res.status(422).json({ detail: 'first_name or full_name is required' });
-  }
-
-  const inserted = await db.query(
-    `INSERT INTO patients (user_id, first_name, last_name, phone, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, NOW(), NOW())
-     RETURNING *`,
-    [userId, fName, lName || '', phone || null]
-  );
-
-  const p = inserted.rows[0];
-  return res.json({
-    ...p,
-    full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-    display_id: `MKN-${String(p.id).padStart(4, '0')}`,
-    email: req.auth.user.email,
-  });
 });
 
 app.put('/api/patients/:id', requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
-  const { full_name, phone, medical_history, blood_type, allergies } = req.body || {};
+  try {
+    const id = Number(req.params.id);
+    const { full_name, phone, email, medical_history, blood_type, allergies } = req.body || {};
 
-  const exists = await db.query('SELECT * FROM patients WHERE id = $1 LIMIT 1', [id]);
-  if (exists.rows.length === 0) {
-    return res.status(404).json({ detail: 'Patient not found' });
+    const exists = await db.query(
+      `SELECT p.*, u.email AS patient_email, u.id AS user_id
+       FROM patients p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.id = $1
+       LIMIT 1`,
+      [id]
+    );
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ detail: 'Patient not found' });
+    }
+
+    const current = exists.rows[0];
+    let fName = current.first_name;
+    let lName = current.last_name;
+    if (full_name) {
+      const parts = String(full_name).trim().split(' ');
+      fName = parts[0] || fName;
+      lName = parts.slice(1).join(' ') || '';
+    }
+
+    let updatedEmail = current.patient_email || null;
+    if (typeof email === 'string' && email.trim()) {
+      updatedEmail = email.trim().toLowerCase();
+      await db.query('UPDATE users SET email = $1, name = $2, updated_at = NOW() WHERE id = $3', [
+        updatedEmail,
+        `${String(fName || '').trim()} ${String(lName || '').trim()}`.trim(),
+        current.user_id,
+      ]);
+    }
+
+    const updated = await db.query(
+       `UPDATE patients
+       SET first_name = $1,
+           last_name = $2,
+           phone = COALESCE($3, phone),
+           medical_history = COALESCE($4, medical_history),
+           blood_type = COALESCE($5, blood_type),
+           allergies = COALESCE($6, allergies),
+           updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [fName, lName, phone ?? null, medical_history ?? null, blood_type ?? null, allergies ?? null, id]
+    );
+
+    const p = updated.rows[0];
+    return res.json({
+      ...p,
+      full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+      display_id: `MKN-${String(p.id).padStart(4, '0')}`,
+      email: updatedEmail,
+    });
+  } catch (error) {
+    return res.status(500).json({ detail: `Failed to update patient: ${error.message}` });
   }
-
-  const current = exists.rows[0];
-  let fName = current.first_name;
-  let lName = current.last_name;
-  if (full_name) {
-    const parts = String(full_name).trim().split(' ');
-    fName = parts[0] || fName;
-    lName = parts.slice(1).join(' ') || '';
-  }
-
-  const updated = await db.query(
-    `UPDATE patients
-     SET first_name = $1,
-         last_name = $2,
-         phone = COALESCE($3, phone),
-         medical_history = COALESCE($4, medical_history),
-         blood_type = COALESCE($5, blood_type),
-         allergies = COALESCE($6, allergies),
-         updated_at = NOW()
-     WHERE id = $7
-     RETURNING *`,
-    [fName, lName, phone ?? null, medical_history ?? null, blood_type ?? null, allergies ?? null, id]
-  );
-
-  const p = updated.rows[0];
-  return res.json({
-    ...p,
-    full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-    display_id: `MKN-${String(p.id).padStart(4, '0')}`,
-  });
 });
 
 app.delete('/api/patients/:id', requireAuth, async (req, res) => {

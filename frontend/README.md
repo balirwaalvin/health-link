@@ -28,6 +28,13 @@ VITE_API_URL=https://api.your-domain.com
 
 Do not keep placeholder domains (like `*.example.com`) in deployed builds.
 
+If your frontend is deployed on Appwrite Sites (or any hosted domain), also set backend CORS env vars:
+
+1. `FRONTEND_URL=https://your-appwrite-site-domain`
+2. Optional extra domains in `FRONTEND_URLS` (comma-separated)
+
+Without matching backend CORS origins, login can fail with browser `Network Error` even when the API is running.
+
 ## Build
 
 `npm run build`

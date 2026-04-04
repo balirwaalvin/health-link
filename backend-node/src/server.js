@@ -18,6 +18,7 @@ if (!process.env.PORT) {
 const app = express();
 const PORT = Number(process.env.PORT || 8000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
+const FRONTEND_URLS = String(process.env.FRONTEND_URLS || '');
 const clerkClient = process.env.CLERK_SECRET_KEY
   ? createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
   : null;
@@ -110,8 +111,32 @@ async function sendPatientOtpEmail({ to, code, validMinutes }) {
   });
 }
 
+function buildAllowedOrigins() {
+  const defaults = ['http://127.0.0.1:5173', 'http://localhost:5173'];
+  const configured = [FRONTEND_URL, ...FRONTEND_URLS.split(',')]
+    .map((origin) => String(origin || '').trim())
+    .filter(Boolean);
+
+  return new Set([...defaults, ...configured]);
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
 app.use(cors({
-  origin: [FRONTEND_URL, 'http://127.0.0.1:5173', 'http://localhost:5173'],
+  origin(origin, callback) {
+    // Allow non-browser requests (curl, health checks, server-to-server).
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 app.use(express.json());

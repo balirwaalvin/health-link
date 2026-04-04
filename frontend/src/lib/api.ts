@@ -33,7 +33,7 @@ function toApiPath(url: string): string {
 }
 
 apiClient.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('clerk_token') || localStorage.getItem('session_token');
+  const token = localStorage.getItem('session_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

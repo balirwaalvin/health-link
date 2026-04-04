@@ -13,6 +13,8 @@ Vite + React frontend for Health Link.
 Local env file ([.env.local](.env.local)) should include:
 
 ```env
+VITE_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
+VITE_APPWRITE_PROJECT_ID=your-appwrite-project-id
 VITE_API_URL=http://localhost:8000
 ```
 
@@ -20,9 +22,13 @@ VITE_API_URL=http://localhost:8000
 
 `VITE_API_URL` must point to your real deployed API host.
 
+This app now signs users in via Appwrite email/password sessions and uses Appwrite JWTs for backend API authorization.
+
 Example:
 
 ```env
+VITE_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
+VITE_APPWRITE_PROJECT_ID=your-appwrite-project-id
 VITE_API_URL=https://api.your-domain.com
 ```
 

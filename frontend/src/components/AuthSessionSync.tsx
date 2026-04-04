@@ -24,7 +24,6 @@ export default function AuthSessionSync() {
         localStorage.removeItem('session_token');
         localStorage.removeItem('role');
         localStorage.removeItem('full_name');
-        sessionStorage.removeItem('clerk_token');
         return;
       }
 

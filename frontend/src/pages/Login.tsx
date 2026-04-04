@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Activity, ArrowRight, HeartPulse, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react';
 import { api, getErrorMessage } from '../lib/api';
+import { signInWithAppwrite } from '../lib/appwrite';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,25 +19,23 @@ export default function Login() {
     setError(null);
 
     try {
-      const response = await api.post('/auth/login', {
-        email: email.trim(),
-        password,
-      });
-
-      const token = response?.data?.access_token;
-      if (!token) {
-        setError('Login did not return an access token.');
-        return;
-      }
+      const token = await signInWithAppwrite(email.trim(), password);
 
       localStorage.setItem('token', token);
       localStorage.setItem('session_token', token);
-      localStorage.setItem('role', response.data?.role || 'staff');
-      localStorage.setItem('full_name', response.data?.name || response.data?.email || 'User');
+
+      // Pull role/profile from backend to keep authorization rules in sync.
+      const profile = await api.get('/auth/user');
+      localStorage.setItem('role', profile.data?.role || 'staff');
+      localStorage.setItem('full_name', profile.data?.name || profile.data?.email || 'User');
 
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Invalid email or password.'));
+      localStorage.removeItem('token');
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('full_name');
+      setError(getErrorMessage(err, 'Unable to sign in. Check your credentials and Appwrite settings.'));
     } finally {
       setSubmitting(false);
     }

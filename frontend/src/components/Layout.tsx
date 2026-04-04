@@ -1,12 +1,23 @@
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Activity, CalendarPlus2, ClipboardList, Home, Info, LogOut, ShieldCheck, Stethoscope, Users, Hospital } from 'lucide-react';
 import { brandLogoUrl } from '../lib/branding';
+import { signOutFromAppwrite } from '../lib/appwrite';
 
 export default function Layout() {
   const navigate = useNavigate();
   const isSignedIn = Boolean(localStorage.getItem('session_token'));
   const role = localStorage.getItem('role') || 'staff';
   const location = useLocation();
+
+  const handleLogout = async () => {
+    await signOutFromAppwrite();
+    localStorage.removeItem('token');
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('full_name');
+    sessionStorage.clear();
+    navigate('/login', { replace: true });
+  };
 
   if (!isSignedIn) {
     return <Navigate to="/login" replace />;
@@ -82,12 +93,7 @@ export default function Layout() {
 
           <button
             onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('session_token');
-              localStorage.removeItem('role');
-              localStorage.removeItem('full_name');
-              sessionStorage.clear();
-              navigate('/login', { replace: true });
+              void handleLogout();
             }}
             className="logout-button mt-4 w-full"
           >
@@ -111,12 +117,7 @@ export default function Layout() {
             </div>
             <button
               onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('session_token');
-                localStorage.removeItem('role');
-                localStorage.removeItem('full_name');
-                sessionStorage.clear();
-                navigate('/login', { replace: true });
+                void handleLogout();
               }}
               className="logout-button hidden md:inline-flex"
             >

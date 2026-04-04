@@ -1,6 +1,7 @@
 const path = require('path');
 const dotenv = require('dotenv');
 const { verifyToken } = require('@clerk/backend');
+const { Client, Account } = require('node-appwrite');
 const db = require('./db');
 const { verifyLocalToken } = require('./localAuth');
 
@@ -8,6 +9,9 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 if (!process.env.CLERK_SECRET_KEY) {
   dotenv.config({ path: path.join(__dirname, '..', '..', 'backend', '.env') });
 }
+
+const APPWRITE_ENDPOINT = String(process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1').trim();
+const APPWRITE_PROJECT_ID = String(process.env.APPWRITE_PROJECT_ID || '').trim();
 
 async function upsertUserFromTokenClaims(claims) {
   const clerkId = claims.sub;
@@ -61,6 +65,41 @@ async function upsertUserFromLocalClaims(claims) {
   return inserted.rows[0];
 }
 
+async function verifyAppwriteJwt(token) {
+  if (!APPWRITE_PROJECT_ID) {
+    return null;
+  }
+
+  const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID).setJWT(token);
+  const account = new Account(client);
+  return account.get();
+}
+
+async function upsertUserFromAppwriteUser(appwriteUser) {
+  const email = String(appwriteUser?.email || '').trim().toLowerCase();
+  if (!email) {
+    throw new Error('Appwrite user is missing email');
+  }
+
+  const name = String(appwriteUser?.name || '').trim();
+  const appwriteId = `appwrite-${appwriteUser.$id}`;
+
+  const existing = await db.query('SELECT * FROM users WHERE email = $1 ORDER BY id ASC LIMIT 1', [email]);
+  if (existing.rows.length > 0) {
+    const updated = await db.query(
+      "UPDATE users SET name = COALESCE(NULLIF($1, ''), name), clerk_id = COALESCE(clerk_id, $2), updated_at = NOW() WHERE id = $3 RETURNING *",
+      [name, appwriteId, existing.rows[0].id]
+    );
+    return updated.rows[0];
+  }
+
+  const inserted = await db.query(
+    'INSERT INTO users (clerk_id, email, name, role, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *',
+    [appwriteId, email, name, 'staff']
+  );
+  return inserted.rows[0];
+}
+
 async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
@@ -76,6 +115,26 @@ async function requireAuth(req, res, next) {
       const user = await upsertUserFromLocalClaims(localClaims);
       req.auth = { claims: localClaims, user, source: 'local' };
       return next();
+    }
+
+    try {
+      const appwriteUser = await verifyAppwriteJwt(token);
+      if (appwriteUser && appwriteUser.$id) {
+        const user = await upsertUserFromAppwriteUser(appwriteUser);
+        req.auth = {
+          claims: {
+            sub: appwriteUser.$id,
+            email: appwriteUser.email,
+            name: appwriteUser.name || '',
+            source: 'appwrite',
+          },
+          user,
+          source: 'appwrite',
+        };
+        return next();
+      }
+    } catch {
+      // Continue to Clerk verification fallback.
     }
 
     if (!process.env.CLERK_SECRET_KEY) {

@@ -1,6 +1,19 @@
 import { useEffect } from 'react';
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function resolveApiBaseUrl() {
+  const envUrl = String(import.meta.env.VITE_API_URL || '').trim();
+  const isLocalRuntime =
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  if (!envUrl || (isLocalRuntime && envUrl.includes('example.com'))) {
+    return 'http://localhost:8000';
+  }
+
+  return envUrl;
+}
+
+const apiBaseUrl = resolveApiBaseUrl();
 
 export default function AuthSessionSync() {
   useEffect(() => {

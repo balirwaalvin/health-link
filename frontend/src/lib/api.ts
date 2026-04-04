@@ -2,7 +2,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function resolveApiBaseUrl() {
+  const envUrl = String(import.meta.env.VITE_API_URL || '').trim();
+  const isLocalRuntime =
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  // Avoid using placeholder production hosts while running locally.
+  if (!envUrl || (isLocalRuntime && envUrl.includes('example.com'))) {
+    return 'http://localhost:8000';
+  }
+
+  return envUrl;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

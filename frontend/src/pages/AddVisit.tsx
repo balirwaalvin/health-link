@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Hospital, NotebookPen, Save, Users } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
 
 interface OptionItem {
@@ -102,90 +103,126 @@ export default function AddVisit() {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-800">Add Visit</h2>
+    <div className="page-stack">
+      <section className="page-hero fade-in-up">
+        <p className="page-hero__eyebrow">Visit entry</p>
+        <h2 className="page-hero__title">Add visit</h2>
+        <p className="page-hero__copy">Capture the encounter in a wider form layout with stronger hierarchy and better desktop spacing.</p>
+      </section>
 
-      {error && <p className="text-sm text-[#DF3232]">{error}</p>}
+      {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Patient</label>
-          <select
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.patient_id}
-            onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
+      <div className="split-grid items-start">
+        <form onSubmit={handleSubmit} className="surface-card space-y-5 fade-in-up delay-1">
+          <div className="field-grid grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="field-label mb-2 block">Patient</label>
+              <select
+                className="select-field"
+                value={form.patient_id}
+                onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
+              >
+                <option value="" disabled>Select a patient</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="field-label mb-2 block">Clinic</label>
+              <select
+                className="select-field"
+                value={form.clinic_id}
+                onChange={(e) => setForm({ ...form, clinic_id: e.target.value })}
+              >
+                <option value="" disabled>Select a clinic</option>
+                {clinics.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="field-label mb-2 block">Date</label>
+              <input
+                type="date"
+                className="text-field"
+                value={form.visit_date}
+                onChange={(e) => setForm({ ...form, visit_date: e.target.value })}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="field-label mb-2 block">Diagnosis</label>
+              <input
+                type="text"
+                className="text-field"
+                value={form.diagnosis}
+                onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="field-label mb-2 block">Prescription</label>
+            <textarea
+              className="textarea-field"
+              value={form.prescription}
+              onChange={(e) => setForm({ ...form, prescription: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div>
+            <label className="field-label mb-2 block">Notes</label>
+            <textarea
+              className="textarea-field"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              rows={4}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={!isValid || saving}
+            className="primary-button w-full inline-flex items-center justify-center gap-2"
           >
-            <option value="" disabled>Select a patient</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
-        </div>
+            <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save visit'}
+          </button>
+        </form>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-          <input
-            type="date"
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.visit_date}
-            onChange={(e) => setForm({ ...form, visit_date: e.target.value })}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Clinic</label>
-          <select
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.clinic_id}
-            onChange={(e) => setForm({ ...form, clinic_id: e.target.value })}
-          >
-            <option value="" disabled>Select a clinic</option>
-            {clinics.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-          <input
-            type="text"
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.diagnosis}
-            onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Prescription</label>
-          <textarea
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.prescription}
-            onChange={(e) => setForm({ ...form, prescription: e.target.value })}
-            rows={2}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
-            className="w-full border-gray-300 border rounded-lg p-2 focus:ring-[#5CA6E2]"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            rows={3}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={!isValid || saving}
-          className="w-full bg-[#318542] disabled:bg-gray-400 text-white p-3 rounded-lg font-bold hover:bg-green-700 transition"
-        >
-          {saving ? 'Saving...' : 'Save Visit'}
-        </button>
-      </form>
+        <aside className="surface-card fade-in-up delay-2">
+          <p className="section-eyebrow">Guidance</p>
+          <h3 className="surface-card__title">Workflow cues</h3>
+          <div className="mini-grid mt-5">
+            <div className="mini-card">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-[#1f6feb]" />
+                <span className="font-semibold">Choose the correct patient</span>
+              </div>
+              <p className="mini-card__copy">Use the patient selector to bind the visit to the right record.</p>
+            </div>
+            <div className="mini-card">
+              <div className="flex items-center gap-2">
+                <Hospital className="h-4 w-4 text-[#ff9f1c]" />
+                <span className="font-semibold">Pick the clinic</span>
+              </div>
+              <p className="mini-card__copy">Keep the encounter traceable to the facility that handled it.</p>
+            </div>
+            <div className="mini-card">
+              <div className="flex items-center gap-2">
+                <NotebookPen className="h-4 w-4 text-[#16a34a]" />
+                <span className="font-semibold">Document clearly</span>
+              </div>
+              <p className="mini-card__copy">Diagnosis, prescription, and notes should remain concise and readable.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

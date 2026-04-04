@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building, PlusCircle, UserPlus, Users } from 'lucide-react';
+import { Building2, ChevronRight, Clock3, PlusCircle, Sparkles, UserPlus, Users, Activity, ClipboardList } from 'lucide-react';
 import { api, authHeaders } from '../lib/api';
 
 interface Stats {
@@ -31,66 +31,148 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="space-y-5">
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-800">Welcome, {name}</h2>
-        <p className="text-sm text-gray-500">Quick access to core workflows.</p>
-      </div>
+    <div className="page-stack">
+      <section className="page-hero fade-in-up">
+        <div className="hero-grid items-center">
+          <div>
+            <p className="page-hero__eyebrow">Command center</p>
+            <h2 className="page-hero__title">Welcome back, {name}</h2>
+            <p className="page-hero__copy">
+              Move through the clinic workspace with clearer analytics, stronger visual hierarchy, and faster access to high-value actions.
+            </p>
+            <div className="page-hero__actions">
+              <Link to="/patients" className="primary-button inline-flex items-center gap-2">
+                Open patients <ChevronRight className="h-4 w-4" />
+              </Link>
+              <Link to="/about" className="secondary-button inline-flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Explore workspace
+              </Link>
+            </div>
+          </div>
+
+          <div className="feature-grid">
+            <div className="mini-card">
+              <div className="flex items-center justify-between">
+                <span className="chip chip--blue">Real-time</span>
+                <Clock3 className="h-4 w-4 text-[#1f6feb]" />
+              </div>
+              <p className="mt-4 text-lg font-black tracking-tight">Desktop-ready workflows</p>
+              <p className="mini-card__copy">Clearer forms, wider layouts, and richer data surfaces for staff.</p>
+            </div>
+            <div className="mini-card">
+              <div className="flex items-center justify-between">
+                <span className="chip chip--green">Protected</span>
+                <Activity className="h-4 w-4 text-[#16a34a]" />
+              </div>
+              <p className="mt-4 text-lg font-black tracking-tight">OTP-secured access</p>
+              <p className="mini-card__copy">Patient records remain gated until verification succeeds.</p>
+            </div>
+            <div className="mini-card">
+              <div className="flex items-center justify-between">
+                <span className="chip chip--amber">Structured</span>
+                <Building2 className="h-4 w-4 text-[#ff9f1c]" />
+              </div>
+              <p className="mt-4 text-lg font-black tracking-tight">Clinic-wide visibility</p>
+              <p className="mini-card__copy">Centralized patient, visit, and clinic operations.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {stats && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-            <p className="text-xs text-gray-500">Patients</p>
-            <p className="text-xl font-bold text-[#5CA6E2]">{stats.patients}</p>
+        <div className="stats-grid fade-in-up delay-1">
+          <div className="stat-card">
+            <p className="stat-card__label">Patients</p>
+            <div className="stat-card__value text-[#1f6feb]">{stats.patients}</div>
+            <p className="stat-card__footnote">Registered patient records in the system.</p>
           </div>
-          <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-            <p className="text-xs text-gray-500">Visits</p>
-            <p className="text-xl font-bold text-[#318542]">{stats.visits}</p>
+          <div className="stat-card">
+            <p className="stat-card__label">Visits</p>
+            <div className="stat-card__value text-[#16a34a]">{stats.visits}</div>
+            <p className="stat-card__footnote">Recorded encounters and follow-ups.</p>
           </div>
-          <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-            <p className="text-xs text-gray-500">Clinics</p>
-            <p className="text-xl font-bold text-[#FFA500]">{stats.clinics}</p>
+          <div className="stat-card">
+            <p className="stat-card__label">Clinics</p>
+            <div className="stat-card__value text-[#ff9f1c]">{stats.clinics}</div>
+            <p className="stat-card__footnote">Active clinics collaborating in the network.</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card__label">Role</p>
+            <div className="stat-card__value text-[#0f4fc3]">{stats.role}</div>
+            <p className="stat-card__footnote">Current signed-in access level.</p>
           </div>
         </div>
       )}
 
-      {error && <p className="text-sm text-[#DF3232]">{error}</p>}
+      {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-4">
-        <Link to="/patients" className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 group">
-          <div className="bg-blue-100 p-3 rounded-full mb-3 group-hover:bg-[#5CA6E2] group-hover:text-white transition">
-            <Users className="w-8 h-8 text-[#5CA6E2] group-hover:text-white" />
+      <section className="content-grid fade-in-up delay-2">
+        <div className="surface-card">
+          <div className="surface-card__header">
+            <div>
+              <p className="section-eyebrow">Quick actions</p>
+              <h3 className="surface-card__title">Start a workflow</h3>
+            </div>
           </div>
-          <span className="font-medium text-gray-700">Patients</span>
-        </Link>
 
-        <Link to="/visits/add" className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 group">
-          <div className="bg-green-100 p-3 rounded-full mb-3 group-hover:bg-[#318542] group-hover:text-white transition">
-            <PlusCircle className="w-8 h-8 text-[#318542] group-hover:text-white" />
-          </div>
-          <span className="font-medium text-gray-700">Add Visit</span>
-        </Link>
-
-        <Link to="/patients/register" className="flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 group col-span-2">
-          <div className="bg-blue-100 p-3 rounded-full mb-3 group-hover:bg-[#5CA6E2] group-hover:text-white transition">
-            <UserPlus className="w-8 h-8 text-[#5CA6E2] group-hover:text-white" />
-          </div>
-          <span className="font-medium text-gray-700">Register New Patient</span>
-        </Link>
-
-        {isAdmin && (
-          <>
-            <Link to="/clinics" className="flex flex-col items-center justify-center bg-[#FFA500] text-white p-6 rounded-xl shadow-sm hover:bg-orange-500 transition col-span-1">
-              <Building className="w-8 h-8 mb-3" />
-              <span className="font-medium text-center">Clinics Management</span>
+          <div className="action-grid">
+            <Link to="/patients" className="action-card">
+              <div className="action-card__icon">
+                <Users className="h-6 w-6 text-[#1f6feb]" />
+              </div>
+              <div>
+                <h4 className="action-card__title">Browse Patients</h4>
+                <p className="action-card__copy">Find records, open profiles, and continue care quickly.</p>
+              </div>
             </Link>
-            <Link to="/visits" className="flex flex-col items-center justify-center bg-[#5CA6E2] text-white p-6 rounded-xl shadow-sm hover:bg-blue-500 transition col-span-1">
-              <span className="font-bold text-2xl mb-3">All</span>
-              <span className="font-medium text-center">All Visits</span>
+
+            <Link to="/visits/add" className="action-card">
+              <div className="action-card__icon">
+                <PlusCircle className="h-6 w-6 text-[#16a34a]" />
+              </div>
+              <div>
+                <h4 className="action-card__title">Log a Visit</h4>
+                <p className="action-card__copy">Capture diagnosis and treatment in a cleaner form.</p>
+              </div>
             </Link>
-          </>
-        )}
-      </div>
+
+            <Link to="/patients/register" className="action-card">
+              <div className="action-card__icon">
+                <UserPlus className="h-6 w-6 text-[#1f6feb]" />
+              </div>
+              <div>
+                <h4 className="action-card__title">Register Patient</h4>
+                <p className="action-card__copy">Create a patient account with a visible email trail.</p>
+              </div>
+            </Link>
+
+            {isAdmin && (
+              <>
+                <Link to="/clinics" className="action-card">
+                  <div className="action-card__icon">
+                    <Building2 className="h-6 w-6 text-[#ff9f1c]" />
+                  </div>
+                  <div>
+                    <h4 className="action-card__title">Clinics</h4>
+                    <p className="action-card__copy">Manage clinic records, addresses, and contact details.</p>
+                  </div>
+                </Link>
+
+                <Link to="/visits" className="action-card">
+                  <div className="action-card__icon">
+                    <ClipboardList className="h-6 w-6 text-[#0f4fc3]" />
+                  </div>
+                  <div>
+                    <h4 className="action-card__title">All Visits</h4>
+                    <p className="action-card__copy">Review the broader visit history across clinics.</p>
+                  </div>
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

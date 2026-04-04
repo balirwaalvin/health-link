@@ -1,22 +1,49 @@
+import { ShieldCheck, Sparkles, Stethoscope, Users, Hospital, Clock3 } from 'lucide-react';
+
 export default function About() {
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-[#5CA6E2]">About Health Link</h2>
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-3 text-gray-700">
-        <p>Health Link is a prototype for cross-clinic patient records in Mukono district.</p>
-        <p>Clinic staff can register patients, request OTP-based access, and add visits. Admin users can also edit/delete records and manage clinics.</p>
-        
-        <h3 className="font-bold text-gray-800 mt-4">How It Works:</h3>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Login as admin or staff.</li>
-          <li>Search patients by name or display ID.</li>
-          <li>Open patient details, request OTP, and verify code 48291.</li>
-          <li>Add visits linked to clinic and patient.</li>
-          <li>Admin can manage clinics and all visits.</li>
-        </ul>
+    <div className="page-stack">
+      <section className="page-hero fade-in-up">
+        <p className="page-hero__eyebrow">About</p>
+        <h2 className="page-hero__title">Health Link</h2>
+        <p className="page-hero__copy">A prototype for cross-clinic patient records in Mukono district, now styled as a more desktop-centric clinical workspace.</p>
+      </section>
 
-        <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-100">
-          <p className="font-bold text-[#DF3232] text-sm text-center">PROTOTYPE - NOT FOR REAL MEDICAL USE</p>
+      <div className="feature-grid fade-in-up delay-1">
+        <div className="feature-card">
+          <ShieldCheck className="h-6 w-6 text-[#1f6feb]" />
+          <h3 className="mt-4 text-lg font-black tracking-tight">Protected access</h3>
+          <p className="section-copy">Patient records are gated behind OTP verification for a cleaner access flow.</p>
+        </div>
+        <div className="feature-card">
+          <Stethoscope className="h-6 w-6 text-[#16a34a]" />
+          <h3 className="mt-4 text-lg font-black tracking-tight">Clinical operations</h3>
+          <p className="section-copy">Staff can register patients and document visits without leaving the workspace.</p>
+        </div>
+        <div className="feature-card">
+          <Sparkles className="h-6 w-6 text-[#ff9f1c]" />
+          <h3 className="mt-4 text-lg font-black tracking-tight">Responsive visuals</h3>
+          <p className="section-copy">The shell now uses richer gradients, cards, motion, and a web-app visual hierarchy.</p>
+        </div>
+      </div>
+
+      <div className="split-grid fade-in-up delay-2">
+        <div className="surface-card">
+          <p className="section-eyebrow">How it works</p>
+          <h3 className="surface-card__title">Workflow overview</h3>
+          <div className="mini-grid mt-5">
+            <div className="mini-card"><Users className="h-4 w-4 text-[#1f6feb]" /><p className="mt-2 font-semibold">Login as staff or admin.</p></div>
+            <div className="mini-card"><Hospital className="h-4 w-4 text-[#ff9f1c]" /><p className="mt-2 font-semibold">Register patients and clinics.</p></div>
+            <div className="mini-card"><Clock3 className="h-4 w-4 text-[#16a34a]" /><p className="mt-2 font-semibold">Request OTP and open protected history.</p></div>
+          </div>
+        </div>
+
+        <div className="surface-card">
+          <p className="section-eyebrow">Prototype notice</p>
+          <div className="empty-state text-center">
+            <p className="text-lg font-black tracking-tight text-[#173047]">PROTOTYPE - NOT FOR REAL MEDICAL USE</p>
+            <p className="section-copy">This app is for demonstration only and should not be used for live clinical decision-making.</p>
+          </div>
         </div>
       </div>
     </div>

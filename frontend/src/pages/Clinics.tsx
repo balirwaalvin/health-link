@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Building2, Plus, Edit2, Trash2, MapPin, Phone } from 'lucide-react';
 import { api, authHeaders, getErrorMessage } from '../lib/api';
 import { isEmptyOrTenDigitPhone, normalizePhoneInput } from '../lib/phone';
 
@@ -92,28 +92,47 @@ export default function Clinics() {
   if (role !== 'admin') return <div className="p-4 text-center text-red-500 font-bold">Access Denied</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Building className="w-6 h-6 text-[#FFA500]" /> Clinics Management
-        </h2>
-        <button onClick={addClinic} className="bg-[#FFA500] text-white p-2 rounded-lg font-bold hover:bg-orange-500 transition shadow-sm flex items-center">
-          <Plus className="w-4 h-4 mr-1" /> New
-        </button>
-      </div>
+    <div className="page-stack">
+      <section className="page-hero fade-in-up">
+        <div className="section-header">
+          <div>
+            <p className="page-hero__eyebrow">Administration</p>
+            <h2 className="page-hero__title">Clinics management</h2>
+            <p className="page-hero__copy">Keep the clinic network organized with a clearer admin workspace and richer record presentation.</p>
+          </div>
+          <button onClick={addClinic} className="primary-button inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" /> New clinic
+          </button>
+        </div>
+      </section>
 
-      {error && <p className="text-sm text-[#DF3232]">{error}</p>}
+      {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-      <div className="grid gap-3">
-        {clinics.map(c => (
-          <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-[#FFA500] flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-gray-800">{c.clinic_name}</h3>
-              <p className="text-sm text-gray-500">{c.location || 'No location'} | {c.contact_phone || 'No phone'}</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => editClinic(c)} className="p-2 text-gray-400 hover:text-[#5CA6E2] transition"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteClinic(c.id)} className="p-2 text-gray-400 hover:text-[#DF3232] transition"><Trash2 className="w-4 h-4" /></button>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {clinics.map((c, index) => (
+          <div key={c.id} className="surface-card fade-in-up" style={{ animationDelay: `${index * 80}ms` }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="action-card__icon h-12 w-12">
+                    <Building2 className="h-5 w-5 text-[#ff9f1c]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight text-[#173047]">{c.clinic_name}</h3>
+                    <p className="text-sm text-[#5f7184]">Clinic profile</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div className="chip chip--amber"><MapPin className="h-3.5 w-3.5" /> {c.location || 'No location'}</div>
+                  <div className="chip chip--green"><Phone className="h-3.5 w-3.5" /> {c.contact_phone || 'No phone'}</div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => editClinic(c)} className="secondary-button inline-flex items-center gap-2 px-4 py-2"><Edit2 className="h-4 w-4" /> Edit</button>
+                <button onClick={() => deleteClinic(c.id)} className="danger-button inline-flex items-center gap-2 px-4 py-2 rounded-2xl font-bold"><Trash2 className="h-4 w-4" /> Delete</button>
+              </div>
             </div>
           </div>
         ))}

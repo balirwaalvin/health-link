@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Activity, ArrowRight, HeartPulse, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react';
 import { api, getErrorMessage } from '../lib/api';
-import { brandColors } from '../lib/branding';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,29 +45,65 @@ export default function Login() {
   const isSignedIn = Boolean(localStorage.getItem('session_token'));
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-3 sm:p-4 pb-12"
-      style={{
-        background:
-          'radial-gradient(circle at 18% 20%, rgba(92, 166, 226, 0.22) 0%, rgba(92, 166, 226, 0) 40%), radial-gradient(circle at 82% 82%, rgba(223, 50, 50, 0.16) 0%, rgba(223, 50, 50, 0) 38%), #f2f7fc',
-      }}
-    >
+    <div className="auth-shell">
       {isSignedIn ? (
         <Navigate to="/" replace />
       ) : (
-        <div className="w-full max-w-sm sm:max-w-md">
-          <h1 className="text-2xl font-bold text-center mb-4" style={{ color: brandColors.primaryBlue }}>
-            Health Link
-          </h1>
-          <div className="shadow-xl border border-white/80 rounded-2xl bg-white p-5 sm:p-6">
-            <h2 className="text-lg font-semibold mb-1" style={{ color: brandColors.primaryBlue }}>
-              Sign in
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">Use your email and password.</p>
+        <section className="auth-panel fade-in-up">
+          <div className="auth-visual">
+            <span className="auth-visual__badge">
+              <Sparkles className="h-3.5 w-3.5" />
+              Desktop-first care workspace
+            </span>
+            <h1 className="auth-visual__title">Health Link Mukono</h1>
+            <p className="auth-visual__copy">
+              A brighter clinical workspace for registering patients, managing visits, and securing medical access with OTP.
+            </p>
 
-              <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="auth-visual__mosaic">
+              <div className="mosaic-card">
+                <ShieldCheck className="h-5 w-5" />
+                <p className="mt-3 text-sm font-semibold">Protected records</p>
+                <p className="mt-1 text-xs text-white/75">OTP gate for sensitive patient history.</p>
+              </div>
+              <div className="mosaic-card">
+                <Stethoscope className="h-5 w-5" />
+                <p className="mt-3 text-sm font-semibold">Clinical workflows</p>
+                <p className="mt-1 text-xs text-white/75">Visits, clinics, and patient records in one place.</p>
+              </div>
+              <div className="mosaic-card">
+                <HeartPulse className="h-5 w-5" />
+                <p className="mt-3 text-sm font-semibold">Better visibility</p>
+                <p className="mt-1 text-xs text-white/75">Structured data with clearer cards and tables.</p>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="chip chip--blue justify-center text-white/95">
+                <Activity className="h-3.5 w-3.5" />
+                Responsive
+              </div>
+              <div className="chip chip--green justify-center text-white/95">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Secure
+              </div>
+              <div className="chip chip--amber justify-center text-white/95">
+                <Sparkles className="h-3.5 w-3.5" />
+                Animated
+              </div>
+            </div>
+          </div>
+
+          <div className="auth-form">
+            <div className="mb-6">
+              <p className="page-hero__eyebrow">Sign in</p>
+              <h2 className="text-3xl font-black tracking-tight text-gray-900">Access the workspace</h2>
+              <p className="mt-2 text-sm text-gray-600">Use your staff or admin credentials to continue.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
+                <label className="field-label mb-2 block" htmlFor="email">
                   Email
                 </label>
                 <input
@@ -77,12 +113,12 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]"
+                  className="text-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
+                <label className="field-label mb-2 block" htmlFor="password">
                   Password
                 </label>
                 <div className="relative">
@@ -93,12 +129,12 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CA6E2]"
+                    className="text-field pr-20"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute inset-y-0 right-2 text-xs font-medium text-[#155A8A] hover:text-[#0F4A72] focus:outline-none"
+                    className="absolute inset-y-0 right-3 text-xs font-bold text-[#0f4fc3] hover:text-[#0d4fc2]"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? 'Hide' : 'Show'}
@@ -106,18 +142,17 @@ export default function Login() {
                 </div>
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full rounded-lg bg-[#5CA6E2] text-white py-2.5 text-sm font-semibold disabled:opacity-60"
-              >
-                {submitting ? 'Signing in...' : 'Sign in'}
+              <button type="submit" disabled={submitting} className="primary-button w-full">
+                <span className="inline-flex items-center justify-center gap-2">
+                  {submitting ? 'Signing in...' : 'Enter dashboard'}
+                  <ArrowRight className="h-4 w-4" />
+                </span>
               </button>
-              </form>
+            </form>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

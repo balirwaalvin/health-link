@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 
@@ -10,14 +11,17 @@ if (!process.env.PORT) {
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
-const { requireAuth } = require('./auth');
-const store = require('./appwriteStore');
-const { seedDefaultAccounts } = require('./seedAccounts');
+const { requireAuth, signAuthToken } = require('./auth');
+const store = require('./store');
+const { seedDefaultUsers } = require('./seedUsers');
 
 const app = express();
 const PORT = Number(process.env.PORT || 8000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5173';
 const FRONTEND_URLS = String(process.env.FRONTEND_URLS || '');
+const frontendDistPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+const frontendIndexPath = path.join(frontendDistPath, 'index.html');
+const frontendBuildExists = fs.existsSync(frontendIndexPath);
 const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
 const resendFrom = String(process.env.RESEND_FROM || process.env.MAIL_FROM || '').trim();
 
@@ -72,18 +76,46 @@ app.use(cors({
 }));
 app.use(express.json());
 
+if (frontendBuildExists) {
+  app.use(express.static(frontendDistPath, { index: false, maxAge: '1h' }));
+}
+
 app.get('/', (_req, res) => {
-  res.json({ status: 'running', app: 'Health Link API (Express + Appwrite)', version: '2.0.0' });
+  if (frontendBuildExists) {
+    res.sendFile(frontendIndexPath);
+    return;
+  }
+
+  res.json({ status: 'running', app: 'Health Link API (Express + PostgreSQL)', version: '3.0.0' });
 });
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'healthy' });
 });
 
-app.post('/api/auth/login', (_req, res) => {
-  return res.status(400).json({
-    detail: 'Direct backend login is disabled. Sign in through Appwrite auth from the frontend.',
-  });
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+
+    if (!email || !password) {
+      return res.status(400).json({ detail: 'Email and password are required' });
+    }
+
+    const user = await store.authenticateUser(email, password);
+    if (!user) {
+      return res.status(401).json({ detail: 'Invalid email or password' });
+    }
+
+    const token = signAuthToken(user);
+    return res.json({ token, user });
+  } catch (error) {
+    return res.status(500).json({ detail: `Failed to sign in: ${error.message}` });
+  }
+});
+
+app.post('/api/auth/logout', (_req, res) => {
+  return res.json({ status: 'success' });
 });
 
 app.get('/api/auth/user', requireAuth, (req, res) => {
@@ -514,11 +546,19 @@ app.delete('/api/visits/:id', requireAuth, async (req, res) => {
   return res.json({ status: 'success', message: 'Visit deleted' });
 });
 
+if (frontendBuildExists) {
+  app.get(/^\/(?!api(?:\/|$)|health(?:\/|$)).*$/, (_req, res) => {
+    res.sendFile(frontendIndexPath);
+  });
+}
+
 async function start() {
+  await store.initializeDatabase();
+
   const seedOnStart = String(process.env.SEED_ON_START || 'true').toLowerCase() !== 'false';
   if (seedOnStart) {
     try {
-      await seedDefaultAccounts();
+      await seedDefaultUsers();
     } catch (error) {
       console.warn('Default account seeding failed. Starting API without startup seed:', error.message || error);
     }

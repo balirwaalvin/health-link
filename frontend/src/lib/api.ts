@@ -3,13 +3,17 @@
 import axios from 'axios';
 
 function resolveApiBaseUrl() {
-  const envUrl = String(import.meta.env.VITE_API_URL || '').trim();
+  const envUrl = String(import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim();
   const isLocalRuntime =
     typeof window !== 'undefined' &&
     ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
+  if (!envUrl) {
+    return isLocalRuntime ? 'http://localhost:8000' : '';
+  }
+
   // Avoid using placeholder production hosts while running locally.
-  if (!envUrl || (isLocalRuntime && envUrl.includes('example.com'))) {
+  if (isLocalRuntime && envUrl.includes('example.com')) {
     return 'http://localhost:8000';
   }
 

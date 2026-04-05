@@ -4,17 +4,20 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const apiUrl = String(env.VITE_API_URL || '').trim();
+  const apiUrl = String(
+    process.env.VITE_API_URL ||
+      process.env.VITE_API_BASE_URL ||
+      env.VITE_API_URL ||
+      env.VITE_API_BASE_URL ||
+      ''
+  ).trim();
 
   if (mode === 'production') {
-    const isPlaceholder =
-      !apiUrl ||
-      apiUrl.includes('your-domain.com') ||
-      apiUrl.includes('example.com');
+    const isPlaceholder = Boolean(apiUrl) && (apiUrl.includes('your-domain.com') || apiUrl.includes('example.com'));
 
     if (isPlaceholder) {
       throw new Error(
-        'Invalid VITE_API_URL for production build. Set VITE_API_URL to your real backend domain.'
+        'Invalid production API URL. Remove placeholder API env values or set VITE_API_URL (or VITE_API_BASE_URL) to a real backend URL.'
       );
     }
   }

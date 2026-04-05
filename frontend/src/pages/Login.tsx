@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Activity, ArrowRight, HeartPulse, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react';
 import { api, getErrorMessage } from '../lib/api';
-import { signInWithAppwrite } from '../lib/appwrite';
+import { signInWithBackend } from '../lib/auth';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,7 +19,12 @@ export default function Login() {
     setError(null);
 
     try {
-      const token = await signInWithAppwrite(email.trim(), password);
+      const credentials = await signInWithBackend(email.trim(), password);
+
+      const token = credentials.token;
+      if (!token) {
+        throw new Error('Backend did not return a token');
+      }
 
       localStorage.setItem('token', token);
       localStorage.setItem('session_token', token);
@@ -35,7 +40,7 @@ export default function Login() {
       localStorage.removeItem('session_token');
       localStorage.removeItem('role');
       localStorage.removeItem('full_name');
-      setError(getErrorMessage(err, 'Unable to sign in. Check your credentials and Appwrite settings.'));
+      setError(getErrorMessage(err, 'Unable to sign in. Check your credentials and backend settings.'));
     } finally {
       setSubmitting(false);
     }

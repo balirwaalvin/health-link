@@ -1,7 +1,9 @@
-const { seedDefaultAccounts, DEFAULT_ACCOUNTS } = require('./seedAccounts');
+const { seedDefaultUsers, DEFAULT_ACCOUNTS } = require('./seedUsers');
+const { initializeDatabase } = require('./store');
 
 async function main() {
-  const accounts = await seedDefaultAccounts();
+  await initializeDatabase();
+  const accounts = await seedDefaultUsers();
   console.log(`Seeded ${accounts.length} default account(s).`);
   accounts.forEach((account) => {
     console.log(`- ${account.email} (${account.role})`);

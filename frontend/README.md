@@ -7,46 +7,37 @@ Vite + React frontend for Health Link.
 1. Install dependencies:
    `npm install`
 2. Ensure [backend-node](../backend-node) is running on `http://localhost:8000`.
-3. Start frontend:
+3. Copy `.env.example` to `.env.local` and point it at your backend API.
+4. Start frontend:
    `npm run dev`
 
 Local env file ([.env.local](.env.local)) should include:
 
 ```env
-VITE_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-VITE_APPWRITE_PROJECT_ID=your-appwrite-project-id
 VITE_API_URL=http://localhost:8000
 ```
 
+`VITE_API_BASE_URL` is also supported as a compatibility alias for `VITE_API_URL`.
+For the single-app DigitalOcean deployment, you can leave both empty and let the frontend call the same origin `/api` routes.
+If you deploy the frontend separately, set one of them to an absolute URL such as `https://api.your-domain.com`.
+
 ## Production configuration
 
-`VITE_API_URL` must point to your real deployed API host.
+This frontend signs users in through the backend `POST /api/auth/login` endpoint and stores a JWT locally.
+When it is served from the same App Platform app as the backend, the browser talks to `/api/...` on the same origin.
 
-This app now signs users in via Appwrite email/password sessions and uses Appwrite JWTs for backend API authorization.
+If the frontend is deployed on DigitalOcean App Platform or any other host, allow that origin in backend CORS:
 
-Example:
-
-```env
-VITE_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-VITE_APPWRITE_PROJECT_ID=your-appwrite-project-id
-VITE_API_URL=https://api.your-domain.com
-```
-
-Do not keep placeholder domains (like `*.example.com`) in deployed builds.
-
-If your frontend is deployed on Appwrite Sites (or any hosted domain), also set backend CORS env vars:
-
-1. `FRONTEND_URL=https://your-appwrite-site-domain`
+1. `FRONTEND_URL=https://your-frontend-domain`
 2. Optional extra domains in `FRONTEND_URLS` (comma-separated)
 
-Without matching backend CORS origins, login can fail with browser `Network Error` even when the API is running.
+The backend must also be configured with PostgreSQL and auth secrets:
 
-Backend must also be configured with Appwrite storage credentials for app data sync:
+1. `DATABASE_URL=postgresql://...`
+2. `JWT_SECRET=<long-random-secret>`
+3. `JWT_EXPIRES_IN=7d`
 
-1. `APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1`
-2. `APPWRITE_PROJECT_ID=<project-id>`
-3. `APPWRITE_API_KEY=<server-api-key>`
-4. `APPWRITE_DATA_BUCKET_ID=<bucket-id>`
+Resend remains the OTP delivery provider. Keep the existing `RESEND_API_KEY` and `RESEND_FROM` values on the backend.
 
 ## Build
 

@@ -1,7 +1,7 @@
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Activity, CalendarPlus2, ClipboardList, Home, Info, LogOut, ShieldCheck, Stethoscope, Users, Hospital } from 'lucide-react';
 import { brandLogoUrl } from '../lib/branding';
-import { signOutFromAppwrite } from '../lib/appwrite';
+import { signOutFromBackend } from '../lib/auth';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ export default function Layout() {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await signOutFromAppwrite();
+    await signOutFromBackend();
     localStorage.removeItem('token');
     localStorage.removeItem('session_token');
     localStorage.removeItem('role');

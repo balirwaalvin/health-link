@@ -1,21 +1,28 @@
-const { getAccountServiceForJwt } = require('./appwriteClient');
-const store = require('./appwriteStore');
+const jwt = require('jsonwebtoken');
+const store = require('./store');
 
-function defaultRoleForEmail(email) {
-  const normalized = String(email || '').trim().toLowerCase();
-  if (!normalized) {
-    return 'staff';
+function requireJwtSecret() {
+  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET is required in backend-node/.env');
   }
 
-  if (normalized === String(process.env.ADMIN_EMAIL || '').trim().toLowerCase()) {
-    return 'admin';
-  }
+  return jwtSecret;
+}
 
-  if (normalized === String(process.env.STAFF_EMAIL || '').trim().toLowerCase()) {
-    return 'staff';
-  }
-
-  return 'staff';
+function signAuthToken(user) {
+  return jwt.sign(
+    {
+      sub: String(user.id),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    },
+    requireJwtSecret(),
+    {
+      expiresIn: String(process.env.JWT_EXPIRES_IN || '7d').trim() || '7d',
+    }
+  );
 }
 
 async function requireAuth(req, res, next) {
@@ -26,37 +33,30 @@ async function requireAuth(req, res, next) {
     }
 
     const token = header.slice('Bearer '.length).trim();
-    const account = getAccountServiceForJwt(token);
-    const appwriteUser = await account.get();
-
-    const email = String(appwriteUser?.email || '').trim().toLowerCase();
-    if (!email) {
-      return res.status(401).json({ detail: 'Authenticated Appwrite user is missing email' });
+    const payload = jwt.verify(token, requireJwtSecret());
+    const userId = Number(payload?.sub);
+    if (!Number.isFinite(userId)) {
+      return res.status(401).json({ detail: 'Invalid token subject' });
     }
 
-    const user = await store.upsertUser({
-      email,
-      name: appwriteUser.name || '',
-      role: defaultRoleForEmail(email),
-      appwriteUserId: appwriteUser.$id,
-    });
+    const user = await store.getUserById(userId);
+    if (!user) {
+      return res.status(401).json({ detail: 'Authenticated user not found' });
+    }
 
     req.auth = {
-      claims: {
-        sub: appwriteUser.$id,
-        email,
-        name: appwriteUser.name || '',
-      },
+      claims: payload,
       user,
-      source: 'appwrite',
+      source: 'local-jwt',
     };
 
     return next();
   } catch (error) {
-    return res.status(401).json({ detail: `Invalid or expired Appwrite token: ${error.message}` });
+    return res.status(401).json({ detail: `Invalid or expired token: ${error.message}` });
   }
 }
 
 module.exports = {
+  signAuthToken,
   requireAuth,
 };

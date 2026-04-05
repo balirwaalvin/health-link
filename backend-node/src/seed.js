@@ -1,3 +1,11 @@
+const path = require('path');
+const dotenv = require('dotenv');
+
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+if (!process.env.DATABASE_URL) {
+  dotenv.config({ path: path.join(__dirname, '..', '..', 'backend', '.env') });
+}
+
 const { seedDefaultUsers, DEFAULT_ACCOUNTS } = require('./seedUsers');
 const { initializeDatabase } = require('./store');
 
